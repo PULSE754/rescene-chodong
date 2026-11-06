@@ -115,7 +115,15 @@
           "sales": 988
         }
       ]
+    },
+    "2026-11-07": {
+      "sales": 0,
+      "final": false,
+      "placeholder": true,
+      "source": "placeholder",
+      "asOf": "2026-11-07 00:00",
+      "versions": []
     }
   },
-  "updatedAt": "2026-11-06T15:03:35.143Z"
+  "updatedAt": "2026-11-06T15:05:41.624Z"
 }
