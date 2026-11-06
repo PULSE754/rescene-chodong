@@ -161,7 +161,7 @@
   .today .v.bump { animation: bump .5s ease-out, breathe 2.4s ease-in-out infinite .5s; }
   @keyframes bump { 0% { transform: scale(1); } 40% { transform: scale(1.12); } 100% { transform: scale(1); } }
   .hero-top { display: flex; gap: 14px; align-items: center; }
-  .cover { width: 60px; height: 60px; border-radius: 8px; flex: none; display: flex; align-items: flex-end; padding: 6px; color: #fff; font-size: 10px; font-weight: 700; }
+  .cover { width: 92px; height: 92px; border-radius: 10px; box-shadow: 0 6px 18px rgba(0,0,0,.45); flex: none; display: flex; align-items: flex-end; padding: 6px; color: #fff; font-size: 10px; font-weight: 700; }
   /* 상단 앨범명: 붓글씨 서체 (Splash) */
   .meta h1 { margin: 0 0 2px; font-family: "Splash", var(--font); font-size: 34px; font-weight: 400; letter-spacing: 0.02em; line-height: 1.05; }
   .meta .type { font-size: 13px; color: var(--sub); }
@@ -179,6 +179,8 @@
     0% { outline: 2px solid rgba(61,220,132,.6); outline-offset: 0; }
     100% { outline: 2px solid rgba(61,220,132,0); outline-offset: 6px; }
   }
+  .live-end { display: block; font-size: 11px; color: var(--muted); margin-top: 1px; }
+  .live { white-space: nowrap; }
   .final { font-size: 12px; font-weight: 500; color: var(--sub); }
 
   .big { margin: 26px 0 0; display: flex; align-items: flex-end; gap: 10px; }
@@ -765,7 +767,7 @@ function render(mode, upd = null) {
   const end = endOf(cur.date);
   const dday = Math.ceil((end - new Date(TODAY.toDateString())) / 86400000);
   const status = isLive
-    ? `<span class="live">실시간 집계 중 · D-${dday} (${ymd(end)} 마감)</span>`
+    ? `<span class="live">실시간 집계 중 · D-${dday}</span><span class="live-end">${ymd(end)} 마감</span>`
     : `<span class="final">초동 확정</span>`;
   const tags = [];
   if (beat) tags.push(`<span class="tag up">▲ ${isLive ? "직전 초동 갱신 확정" : "직전 초동 갱신"}</span>`);
@@ -785,7 +787,7 @@ function render(mode, upd = null) {
     <div class="hero-top">
       <div class="cover" style="${coverBg(cur)};background-size:cover;background-position:center">${cur.cover ? "" : cur.title}</div>
       <div class="meta">
-        <h1>${cur.title}</h1>
+        <h1>${cur.title.charAt(0).toUpperCase() + cur.title.slice(1).toLowerCase()}</h1>
         <div class="type">${cur.type} · ${fmtDate(cur.date)} 발매</div>
         ${status}
       </div>
