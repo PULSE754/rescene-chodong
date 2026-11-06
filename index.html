@@ -888,10 +888,25 @@ function render(mode, upd = null) {
 // 역대 초동 줄을 누르면 발매일·앨범 종류 말풍선 (다시 누르거나 다른 곳을 누르면 닫힘)
 const histTip = Object.assign(document.createElement("div"), { className: "h-tip", hidden: true });
 document.body.appendChild(histTip);
+function hideHistTip() { histTip.hidden = true; document.querySelectorAll(".h-row.on").forEach(r => r.classList.remove("on")); }
+// PC: 마우스를 올리면 뜨고, 줄 밖으로 옮기면 사라진다
+document.addEventListener("pointerover", e => {
+  if (e.pointerType !== "mouse") return;
+  const row = e.target.closest?.(".h-row");
+  if (row && !row.classList.contains("on")) showHistTip(row);
+});
+document.addEventListener("pointermove", e => {
+  if (e.pointerType === "mouse" && !histTip.hidden && !e.target.closest?.(".h-row")) hideHistTip();
+});
+document.addEventListener("mouseleave", hideHistTip);
+// 휴대폰: 누르면 열고, 다시 누르거나 다른 곳을 누르면 닫힘
 document.addEventListener("click", e => {
   const row = e.target.closest?.(".h-row");
-  if (!row) { histTip.hidden = true; document.querySelectorAll(".h-row.on").forEach(r => r.classList.remove("on")); return; }
-  if (row.classList.contains("on")) { row.classList.remove("on"); histTip.hidden = true; return; }
+  if (!row) return hideHistTip();
+  if (row.classList.contains("on") && e.pointerType !== "mouse") return hideHistTip();
+  showHistTip(row);
+});
+function showHistTip(row) {
   document.querySelectorAll(".h-row.on").forEach(r => r.classList.remove("on"));
   row.classList.add("on");
   const [t, info, song, state] = row.dataset.tip.split("|");
@@ -900,7 +915,7 @@ document.addEventListener("click", e => {
   const r = row.getBoundingClientRect();
   histTip.style.top = (window.scrollY + r.top - histTip.offsetHeight - 6) + "px";
   histTip.style.left = (window.scrollX + r.left + 52) + "px";
-});
+}
 
 // 스크래퍼가 만든 data/sales.json을 읽어 현재 앨범 숫자를 덮어쓴다 (5분마다 다시 읽음)
 async function loadLive() {
