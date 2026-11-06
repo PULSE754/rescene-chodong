@@ -187,7 +187,8 @@
 
   .big { margin: 26px 0 0; display: flex; align-items: flex-end; gap: 10px; }
   .big b { white-space: nowrap; flex: none; font-family: var(--font); font-size: clamp(36px, 11vw, 60px); font-weight: 700; letter-spacing: -0.04em; line-height: 1; }
-  .big-label { margin-top: 22px; font-size: 12px; font-weight: 500; color: var(--sub); }
+  .big-label { font-size: 15px; font-weight: 500; color: var(--sub); margin-bottom: 2px; }
+  .big-l { display: flex; flex-direction: column; flex: none; }
   .big b small { font-size: 0.55em; margin-left: 2px; }
   .asof { font-size: 12px; color: var(--muted); margin-top: 6px; }
 
@@ -794,8 +795,7 @@ function render(mode, upd = null) {
         ${status}
       </div>
     </div>
-    <div class="big-label">현재 누적 판매량</div>
-    <div class="big" style="margin-top:6px"><b class="num"><span class="tot" data-to="${cur.sales}">${comma(upd ? upd.total : cur.sales)}</span><small> 장</small></b>${todayBox}</div>
+    <div class="big"><div class="big-l"><div class="big-label">현재 누적 판매량</div><b class="num"><span class="tot" data-to="${cur.sales}">${comma(upd ? upd.total : cur.sales)}</span><small> 장</small></b></div>${todayBox}</div>
     <div class="asof num">${isLive ? "집계 기준 (KST) " + cur.asOf : "한터 초동 확정치"}</div>
     <div class="tags">${tags.join("")}</div>`;
   if (upd) countUp(upd.today, upd.total); else countUp();
