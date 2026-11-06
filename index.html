@@ -739,6 +739,13 @@ document.addEventListener("pointermove", e => {
   if (e.pointerType === "mouse" && !e.target.closest?.(".t-hit")) hideTrendTip();
 });
 document.addEventListener("pointerleave", () => { if (!pinnedTip) hideTrendTip(); });
+// 그래프 영역(.trend) 밖으로 마우스가 나가는 순간 닫기 (빠르게 빠져나가도 확실하게)
+document.addEventListener("pointerout", e => {
+  if (pinnedTip || e.pointerType !== "mouse") return;
+  const from = e.target.closest?.(".trend");
+  if (from && !from.contains(e.relatedTarget)) hideTrendTip();
+});
+document.addEventListener("mouseleave", () => { if (!pinnedTip) hideTrendTip(); });
 window.addEventListener("scroll", () => { if (!pinnedTip && matchMedia("(hover: hover)").matches) hideTrendTip(); }, { passive: true });
 
 // upd: 새 집계가 들어와 다시 그릴 때 이전 숫자 { today, total } (처음 그릴 때는 없음)
