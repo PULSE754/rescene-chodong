@@ -352,7 +352,9 @@
   .tk-item .r { font-weight: 800; }
   .tk-item .up { color: #c4141e; font-size: 12px; } .tk-item .down { color: #1554b8; font-size: 12px; } .tk-item .same { opacity: .55; font-size: 12px; }
   .tk-item.top .r { color: #c4141e; }
-  .tk-time { padding: 0 18px; font-size: 12px; opacity: .75; }
+  .tk-sep { display: inline-flex; align-items: center; gap: 6px; margin: 0 14px; padding: 3px 10px; border-radius: 999px;
+    background: #10171a; color: #e6eef0; font-size: 11px; white-space: nowrap; }
+  .tk-sep b { color: #00cd3c; font-weight: 800; letter-spacing: .06em; }
 
   /* 새 집계 반영 때의 반응 */
   .calm .t-line { animation: none !important; stroke-dashoffset: 0; }
@@ -979,7 +981,7 @@ async function loadMelon() {
       const ch = s.change > 0 ? `<span class="up">▲${s.change}</span>` : s.change < 0 ? `<span class="down">▼${-s.change}</span>`
         : s.change === "NEW" ? `<span class="up">NEW</span>` : `<span class="same">–</span>`;
       return `<span class="tk-item${s.rank === 1 ? " top" : ""}"><b>${s.title}</b><span class="r">${s.rank}위</span>${ch}</span>`;
-    }).join("") + `<span class="tk-time"></span>`;
+    }).join("") + `<span class="tk-sep"><b>MELON</b> ${when}</span>`;   // 한 바퀴 끝(마지막 순위 → 1위 사이) 구분 표시
     document.getElementById("tkTrack").innerHTML = items + items;   // 두 번 이어 붙여 끊김 없이 흐르게
     document.getElementById("ticker").hidden = false;
   } catch {}
