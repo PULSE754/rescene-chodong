@@ -32,6 +32,8 @@
     color-scheme: dark;
   }
   * { box-sizing: border-box; }
+  /* hidden 속성이 display:flex 같은 스타일에 덮여 안 숨겨지는 일이 없게 */
+  [hidden] { display: none !important; }
   body {
     margin: 0; background: var(--bg); color: var(--ink);
     font-family: var(--font); font-size: 15px; line-height: 1.5;
