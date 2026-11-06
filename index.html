@@ -323,6 +323,29 @@
   .h-tip b { color: var(--ink); font-size: 13px; }
   .h-tip .live-t { color: var(--live); }
 
+  /* 새 집계 반영 때의 반응 */
+  .calm .t-line { animation: none !important; stroke-dashoffset: 0; }
+  .calm .t-area, .calm .t-pt, .calm .t-cum { animation: none !important; opacity: 1; }
+  .calm .h-bar i { animation: none !important; }
+  .calm .t-pt.last.flash { animation: ptflash 1s ease-out 3 !important; }
+  @keyframes ptflash { 0% { r: 4.5; filter: drop-shadow(0 0 0 rgba(147,241,247,0)); } 40% { r: 8; filter: drop-shadow(0 0 8px rgba(147,241,247,.9)); } 100% { r: 4.5; } }
+  .delta {
+    position: absolute; right: 6px; top: -14px; font-size: 13px; font-weight: 700; color: var(--up);
+    background: rgba(255,93,99,.15); border: 1px solid rgba(255,93,99,.4); border-radius: 999px; padding: 1px 8px;
+    pointer-events: none; animation: deltaup 2.6s ease-out forwards !important;
+  }
+  @keyframes deltaup {
+    0% { opacity: 0; transform: translateY(8px) scale(.9); }
+    15% { opacity: 1; transform: translateY(0) scale(1.05); }
+    70% { opacity: 1; transform: translateY(-6px); }
+    100% { opacity: 0; transform: translateY(-16px); }
+  }
+  .big.flash .tot { animation: totflash 1.6s ease-out !important; }
+  @keyframes totflash { 0%, 100% { text-shadow: none; } 30% { text-shadow: 0 0 18px rgba(147,241,247,.8); color: var(--accent); } }
+  table.daily tr.now.flash td { animation: rowflash 1.6s ease-out !important; }
+  @keyframes rowflash { 0% { background: rgba(147,241,247,.35); } 100% { background: rgba(147,241,247,.06); } }
+  .h-row.cur.flash .h-num { animation: totflash 1.6s ease-out !important; }
+
   /* 누적 추이 그래프 */
   .trend { margin: 0 0 14px; position: relative; }
   .trend-head { display: flex; justify-content: space-between; align-items: baseline; font-size: 12px; color: var(--sub); margin-bottom: 4px; }
@@ -427,21 +450,45 @@ const coverBg = a => a.cover
   ? `background-image:url('${a.cover}')`
   : `background-image:linear-gradient(135deg, ${a.colors[0]}, ${a.colors[1]})`;
 
-// 오늘 판매량: 0부터 숫자가 올라가는 카운트업 후 톡 튀는 효과
-function countUp() {
-  const el = document.querySelector(".today .cnt");
+// 숫자가 from → to 로 굴러가듯 바뀌는 효과
+function rollNumber(el, from, to, dur, done) {
   if (!el) return;
-  const to = +el.dataset.to;
-  if (matchMedia("(prefers-reduced-motion: reduce)").matches) { el.textContent = comma(to); return; }
-  const dur = 1400, t0 = performance.now();
+  const t0 = performance.now();
   const step = now => {
     const p = Math.min(1, (now - t0) / dur);
     const eased = 1 - Math.pow(1 - p, 3);
-    el.textContent = comma(Math.round(to * eased));
-    if (p < 1) requestAnimationFrame(step);
-    else { const v = el.parentElement; v.classList.remove("bump"); void v.offsetWidth; v.classList.add("bump"); }
+    el.textContent = comma(Math.round(from + (to - from) * eased));
+    if (p < 1) requestAnimationFrame(step); else done?.();
   };
   requestAnimationFrame(step);
+}
+// 오늘 판매량(그리고 갱신 때는 누적도): 이전 숫자에서 새 숫자로 굴러간 뒤 톡 튄다
+// 처음 열 때는 오늘 판매량만 0부터 올라간다
+function countUp(fromToday = 0, fromTotal = null) {
+  const el = document.querySelector(".today .cnt");
+  if (el) rollNumber(el, fromToday, +el.dataset.to, 1400, () => {
+    const v = el.parentElement; v.classList.remove("bump"); void v.offsetWidth; v.classList.add("bump");
+  });
+  const tot = document.querySelector(".big .tot");
+  if (tot && fromTotal != null) rollNumber(tot, fromTotal, +tot.dataset.to, 1400);
+}
+
+// 새 집계가 들어왔을 때의 반응: +증가량 표시가 떠올랐다 사라지고, 그래프 끝점·오늘 줄·PULSE 막대가 반짝인다
+function reactToUpdate(prev, cur) {
+  const today = cur.daily?.at(-1) ?? 0;
+  const diff = cur.sales - prev.total;
+  const btn = document.querySelector(".today");
+  if (btn && diff > 0) {
+    const chip = document.createElement("span");
+    chip.className = "delta num";
+    chip.textContent = `+${comma(diff)}`;
+    btn.appendChild(chip);
+    setTimeout(() => chip.remove(), 2600);
+  }
+  document.querySelector(".big")?.classList.add("flash");
+  document.querySelector(".t-pt.last")?.classList.add("flash");
+  document.querySelector("table.daily tr.now")?.classList.add("flash");
+  document.querySelector(".h-row.cur")?.classList.add("flash");
 }
 
 // 예상 최종 초동
@@ -694,7 +741,8 @@ document.addEventListener("pointermove", e => {
 document.addEventListener("pointerleave", () => { if (!pinnedTip) hideTrendTip(); });
 window.addEventListener("scroll", () => { if (!pinnedTip && matchMedia("(hover: hover)").matches) hideTrendTip(); }, { passive: true });
 
-function render(mode) {
+// upd: 새 집계가 들어와 다시 그릴 때 이전 숫자 { today, total } (처음 그릴 때는 없음)
+function render(mode, upd = null) {
   const list = mode === "live" ? ALBUMS : ALBUMS.filter(a => !a.live);
   const cur = list[list.length - 1];
   const prev = list[list.length - 2];
@@ -722,7 +770,7 @@ function render(mode) {
   const todayBox = todayN != null
     ? `<button type="button" class="today num${hasVer ? " has-ver" : ""}" ${hasVer ? 'aria-haspopup="dialog"' : "disabled"}>
         <span class="k">TODAY · 오늘 판매</span>
-        <span class="v"><span class="arw">▲</span><span class="cnt" data-to="${todayN}">0</span></span>
+        <span class="v"><span class="arw">▲</span><span class="cnt" data-to="${todayN}">${upd ? comma(upd.today) : 0}</span></span>
         ${hasVer ? `<span class="ver-hint${verSeen() ? " seen" : ""}">버전별 보기 <i class="caret">▾</i></span>` : ""}</button>`
     : "";
   window.__verData = hasVer ? { days: cur.dayDetails || [], album: cur.title, idx: (cur.dayDetails || []).length - 1 } : null;
@@ -736,10 +784,13 @@ function render(mode) {
       </div>
     </div>
     <div class="big-label">현재 누적 판매량</div>
-    <div class="big" style="margin-top:6px"><b class="num">${comma(cur.sales)}<small> 장</small></b>${todayBox}</div>
+    <div class="big" style="margin-top:6px"><b class="num"><span class="tot" data-to="${cur.sales}">${comma(upd ? upd.total : cur.sales)}</span><small> 장</small></b>${todayBox}</div>
     <div class="asof num">${isLive ? "집계 기준 (KST) " + cur.asOf : "한터 초동 확정치"}</div>
     <div class="tags">${tags.join("")}</div>`;
-  countUp();
+  if (upd) countUp(upd.today, upd.total); else countUp();
+  // 갱신 때는 처음 열 때의 등장 애니메이션(선 그리기·막대 차오르기)을 반복하지 않는다
+  document.getElementById("vs").classList.toggle("calm", !!upd);
+  document.getElementById("history").classList.toggle("calm", !!upd);
 
   // 일평균 판매량 (집계 중일 때만): 하루가 다 끝난(확정) 날만 평균낸다
   const ol = document.getElementById("outlook");
@@ -799,6 +850,7 @@ function render(mode) {
         </span>
       </button>`;
   }).join("");
+  if (upd) reactToUpdate(upd, cur);
 }
 
 // 역대 초동 줄을 누르면 발매일·앨범 종류 말풍선 (다시 누르거나 다른 곳을 누르면 닫힘)
@@ -838,13 +890,23 @@ async function loadLive() {
       const [d, t] = live.asOf.split(" ");
       a.asOf = `${d.replaceAll("-", ".")} ${t}`;
     }
-    return true;
+    // 숫자가 실제로 바뀌었는지 (바뀐 경우에만 화면이 반응하도록)
+    const sig = JSON.stringify([a.daily, a.asOf]);
+    const changed = sig !== lastSig;
+    lastSig = sig;
+    return changed;
   } catch { return false; }
 }
+let lastSig = null;
 // 집계 중인 앨범(live)이 있으면 그 앨범을, 없으면 가장 최근 확정 앨범을 보여준다
 const currentMode = () => ALBUMS.some(a => a.live) ? "live" : "idle";
 loadLive().finally(() => render(currentMode()));
-setInterval(() => loadLive().then(ok => ok && render(currentMode())), 5 * 60 * 1000);
+// 1분마다 새 데이터를 확인하고, 숫자가 바뀌었을 때만 이전 숫자에서 새 숫자로 반응하며 갱신
+setInterval(async () => {
+  const cur = ALBUMS.find(a => a.live) || ALBUMS.at(-1);
+  const prev = { today: cur.daily?.at(-1) ?? 0, total: cur.sales };
+  if (await loadLive()) render(currentMode(), prev);
+}, 60 * 1000);
 </script>
 </body>
 </html>
