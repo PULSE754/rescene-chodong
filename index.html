@@ -1,0 +1,792 @@
+<!doctype html>
+<html lang="ko" data-type="software" data-radius="soft">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="page-type" content="software">
+<meta name="site-kind" content="software">
+<title>리센느 초동 트래커</title>
+<!-- deal: palette candy-on-black · type chivo (Chivo + Chivo Mono) · radius soft -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chivo:wght@400..700&family=Chivo+Mono:wght@400..500&family=Noto+Sans+KR:wght@400;500;700&family=Splash&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #000000;
+    --card: #0d0d0d;
+    --raise: #161616;
+    --ink: #ffffff;
+    --sub: #c8c8c8;
+    --muted: #999999;
+    --line: #222222;
+    --track: #1c1c1c;
+    --accent: #93f1f7;
+    --accent-ink: #000000;
+    --prev: #3a3a3a;
+    --up: #ff5d63;     /* 국내 차트 관례: 상승 빨강 */
+    --down: #6aa8ff;   /* 하락 파랑 */
+    --live: #3ddc84;   /* 실시간 집계 표시등 */
+    --r: 12px;
+    --font: "Chivo", "Noto Sans KR", system-ui, sans-serif;
+    --mono: "Chivo Mono", "Noto Sans KR", ui-monospace, Consolas, monospace;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: var(--font); font-size: 15px; line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  .num { font-variant-numeric: tabular-nums; }
+  .wrap { max-width: 520px; margin: 0 auto; padding: 12px 16px 48px; }
+
+  header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 0 18px; }
+  .brand { font-weight: 500; font-size: 16px; letter-spacing: -0.01em; }
+  .brand small { display: block; font-weight: 400; font-size: 12px; color: var(--muted); }
+  .demo { display: flex; background: var(--card); border: 1px solid var(--line); border-radius: 999px; padding: 3px; }
+  .demo button {
+    border: 0; background: none; color: var(--muted); font: inherit; font-size: 12px; font-weight: 500;
+    padding: 6px 11px; border-radius: 999px; cursor: pointer;
+    transition: color .15s, background-color .15s, transform .1s;
+  }
+  .demo button:hover { color: var(--ink); }
+  .demo button:active { transform: scale(0.96); }
+  .demo button.on { background: var(--accent); color: var(--accent-ink); }
+  .demo button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--r); padding: 20px; margin-bottom: 12px; }
+  .sec-title { font-size: 15px; font-weight: 500; margin: 0 0 14px; display: flex; justify-content: space-between; align-items: baseline; }
+  .sec-title small { font-size: 12px; font-weight: 400; color: var(--muted); }
+
+  /* 현재 앨범: 배경 이미지 흐리게 */
+  #hero { position: relative; overflow: hidden; isolation: isolate; padding: 22px 20px 20px; }
+  #hero::before {
+    content: ""; position: absolute; inset: 0; z-index: -2;
+    background: url("hero.webp") 40% 45% / cover no-repeat;
+    opacity: 0.32;
+  }
+  #hero::after {
+    content: ""; position: absolute; inset: 0; z-index: -1;
+    background: linear-gradient(180deg, rgba(0,0,0,0) 30%, rgba(13,13,13,0.85) 100%);
+  }
+  button.today { background: none; border: 0; padding: 4px 6px; margin-right: -6px; border-radius: 10px; font: inherit; color: inherit; cursor: default; }
+  button.today.has-ver { cursor: pointer; transition: background-color .15s, transform .1s; }
+  button.today.has-ver:hover, button.today.open { background: rgba(255,93,99,.08); }
+  button.today.has-ver:active { transform: scale(.97); }
+  button.today:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  /* 누를 수 있다는 걸 알려주는 작은 버튼 모양 표시 + 처음에 두 번 반짝 */
+  button.today { position: relative; }
+  .ver-hint {
+    position: absolute; right: 6px; top: calc(100% + 4px); white-space: nowrap;
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 11px; font-weight: 500; color: var(--ink);
+    padding: 3px 9px; border-radius: 999px; border: 1px solid rgba(255,255,255,.25); background: rgba(255,255,255,.06);
+    overflow: hidden;
+    /* 살아 있는 느낌: 테두리가 숨 쉬듯 빛나고 */
+    animation: breathe-pill 2.4s ease-in-out 1.8s infinite;
+  }
+  /* 빛 한 줄기가 3초마다 버튼을 훑고 지나가고 */
+  .ver-hint::before {
+    content: ""; position: absolute; top: 0; bottom: 0; left: -60%; width: 50%;
+    background: linear-gradient(100deg, transparent, rgba(255,255,255,.35), transparent);
+    animation: hint-sweep 3s ease-in-out 2s infinite;
+  }
+  /* ▾ 화살표가 아래로 톡톡 튄다 */
+  .ver-hint .caret { animation: caret-bob 1.2s ease-in-out infinite; }
+  @keyframes breathe-pill {
+    0%, 100% { border-color: rgba(255,255,255,.25); box-shadow: 0 0 0 0 rgba(255,93,99,0); }
+    50% { border-color: rgba(255,93,99,.8); box-shadow: 0 0 10px 1px rgba(255,93,99,.35); }
+  }
+  @keyframes hint-sweep { 0% { left: -60%; } 50%, 100% { left: 130%; } }
+  @keyframes caret-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(2px); } }
+  /* 한 번 열어본 뒤에는 효과를 멈춘다 */
+  .ver-hint.seen, .ver-hint.seen::before, .ver-hint.seen .caret { animation: none !important; }
+  .ver-hint.seen::before { display: none; }
+  button.today.has-ver:hover .ver-hint, button.today.open .ver-hint { border-color: var(--up); color: var(--up); }
+  @keyframes nudge {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(255,255,255,0); transform: translateY(0); }
+    40% { box-shadow: 0 0 0 4px rgba(255,255,255,.12); transform: translateY(-2px); }
+  }
+  .today .caret { font-style: normal; font-size: 10px; display: inline-block; transition: transform .2s; }
+  .today.open .caret { transform: rotate(180deg); }
+  .ver-pop {
+    position: absolute; z-index: 20; width: min(300px, calc(100vw - 16px));
+    background: #161616; border: 1px solid #333; border-radius: 12px; padding: 12px 14px;
+    box-shadow: 0 12px 32px rgba(0,0,0,.6); font-size: 13px; animation: popin .16s ease-out;
+  }
+  @keyframes popin { from { opacity: 0; transform: translateY(-4px); } }
+  .vp-nav { display: grid; grid-template-columns: 28px 1fr 28px; align-items: center; gap: 6px; }
+  .vp-title { text-align: center; display: flex; flex-direction: column; }
+  .vp-title b { font-size: 13px; font-weight: 700; }
+  .vp-title span { font-size: 11px; color: var(--muted); }
+  .vp-arrow {
+    width: 28px; height: 28px; border-radius: 50%; border: 1px solid #333; background: #202020; color: var(--ink);
+    font-size: 18px; line-height: 1; cursor: pointer; transition: background-color .15s, transform .1s;
+  }
+  .vp-arrow:hover:not(:disabled) { background: #2c2c2c; border-color: var(--accent); }
+  .vp-arrow:active:not(:disabled) { transform: scale(.92); }
+  .vp-arrow:disabled { opacity: .25; cursor: default; }
+  .vp-dots { display: flex; justify-content: center; gap: 5px; margin: 8px 0 4px; }
+  .vp-dots i { width: 5px; height: 5px; border-radius: 50%; background: #3a3a3a; transition: all .2s; }
+  .vp-dots i.on { width: 14px; border-radius: 3px; background: var(--accent); }
+  .vp-body { animation-duration: .22s; animation-timing-function: ease-out; }
+  @keyframes vp-left { from { opacity: 0; transform: translateX(-14px); } }
+  @keyframes vp-right { from { opacity: 0; transform: translateX(14px); } }
+  .vp-empty { padding: 18px 0; text-align: center; color: var(--sub); font-size: 13px; border-top: 1px solid #222; line-height: 1.6; }
+  .vp-empty small { color: var(--muted); font-size: 11px; }
+  .vp-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+  .vp-head b { font-weight: 700; font-size: 13px; }
+  .vp-head span { font-size: 11px; color: var(--muted); }
+  .vp-row { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; padding: 9px 0; border-top: 1px solid #222; }
+  .vp-name { color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .vp-num { white-space: nowrap; }
+  .vp-num em { font-style: normal; color: var(--muted); font-size: 12px; }
+  .vp-total { display: flex; justify-content: space-between; border-top: 1px solid #444; padding-top: 10px; margin-top: 2px; font-weight: 700; }
+  .today { margin-left: auto; text-align: right; white-space: nowrap; align-self: flex-end; }
+  .today .k {
+    display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 700;
+    color: var(--up); background: rgba(255,93,99,.14); padding: 3px 8px; border-radius: 999px; margin-bottom: 6px;
+  }
+  .today .v {
+    display: block; font-size: clamp(22px, 6.8vw, 30px); font-weight: 700; color: var(--up); line-height: 1;
+    letter-spacing: -0.03em; text-shadow: 0 0 18px rgba(255,93,99,.45);
+    animation: breathe 2.4s ease-in-out infinite;
+  }
+  .today .v .arw { font-size: 16px; vertical-align: 6px; margin-right: 2px; display: inline-block; animation: hop 2.4s ease-in-out infinite; }
+  @keyframes breathe {
+    0%, 100% { text-shadow: 0 0 10px rgba(255,93,99,.25); }
+    50% { text-shadow: 0 0 24px rgba(255,93,99,.7); }
+  }
+  @keyframes hop { 0%, 60%, 100% { transform: translateY(0); } 30% { transform: translateY(-4px); } }
+  .today .v.bump { animation: bump .5s ease-out, breathe 2.4s ease-in-out infinite .5s; }
+  @keyframes bump { 0% { transform: scale(1); } 40% { transform: scale(1.12); } 100% { transform: scale(1); } }
+  .hero-top { display: flex; gap: 14px; align-items: center; }
+  .cover { width: 60px; height: 60px; border-radius: 8px; flex: none; display: flex; align-items: flex-end; padding: 6px; color: #fff; font-size: 10px; font-weight: 700; }
+  /* 상단 앨범명: 붓글씨 서체 (Splash) */
+  .meta h1 { margin: 0 0 2px; font-family: "Splash", var(--font); font-size: 34px; font-weight: 400; letter-spacing: 0.02em; line-height: 1.05; }
+  .meta .type { font-size: 13px; color: var(--sub); }
+  /* 실시간 감시 표시등: 초록 불이 켜졌다 꺼졌다 + 퍼지는 링 */
+  .live { font-size: 12px; font-weight: 500; color: var(--live); display: inline-flex; align-items: center; gap: 8px; margin-top: 4px; }
+  .live::before, .mini-live::before {
+    content: ""; width: 7px; height: 7px; border-radius: 50%; flex: none;
+    background: var(--live); animation: blink 1.2s ease-in-out infinite, ring 1.2s ease-out infinite;
+  }
+  @keyframes blink {
+    0%, 100% { opacity: 1; box-shadow: 0 0 6px 1px var(--live); }
+    50% { opacity: .25; box-shadow: 0 0 0 0 transparent; }
+  }
+  @keyframes ring {
+    0% { outline: 2px solid rgba(61,220,132,.6); outline-offset: 0; }
+    100% { outline: 2px solid rgba(61,220,132,0); outline-offset: 6px; }
+  }
+  .final { font-size: 12px; font-weight: 500; color: var(--sub); }
+
+  .big { margin: 26px 0 0; display: flex; align-items: flex-end; gap: 10px; }
+  .big b { white-space: nowrap; flex: none; font-family: var(--font); font-size: clamp(36px, 11vw, 60px); font-weight: 700; letter-spacing: -0.04em; line-height: 1; }
+  .big-label { margin-top: 22px; font-size: 12px; font-weight: 500; color: var(--sub); }
+  .big b small { font-size: 0.55em; margin-left: 2px; }
+  .asof { font-size: 12px; color: var(--muted); margin-top: 6px; }
+
+  .tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 16px; }
+  .tag { font-size: 12px; font-weight: 500; padding: 5px 10px; border-radius: 999px; }
+  .tag.up { background: rgba(255,93,99,.14); color: var(--up); }
+  .tag.down { background: rgba(106,168,255,.14); color: var(--down); }
+  .tag.best { background: var(--accent); color: var(--accent-ink); }
+  .tag.wait { background: var(--raise); color: var(--muted); }
+
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th { text-align: left; font-family: var(--font); font-size: 12px; color: var(--muted); font-weight: 400; padding: 0 8px 8px; border-bottom: 1px solid var(--line); }
+  th:nth-child(n+2), td:nth-child(n+2) { text-align: right; }
+  td { padding: 11px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tr:last-child td { border-bottom: 0; }
+  tbody tr { transition: background-color .15s; }
+  tbody tr:hover { background: var(--raise); }
+  td:first-child, th:first-child { padding-left: 4px; }
+  td:last-child, th:last-child { padding-right: 4px; }
+  #table td:nth-child(n+2) { white-space: nowrap; }
+  #table { font-size: 13px; }
+  #table td, #table th { padding-left: 3px; padding-right: 3px; }
+  #table td .d { white-space: nowrap; }
+  .alb { display: flex; align-items: center; gap: 10px; }
+  .thumb { width: 36px; height: 36px; border-radius: 6px; flex: none; background-size: cover; background-position: center; box-shadow: inset 0 0 0 1px rgba(255,255,255,.08); }
+  td .t { font-family: var(--font); font-weight: 500; }
+  td .d { font-family: var(--font); font-size: 12px; color: var(--muted); }
+  td .exact { display: block; font-size: 12px; color: var(--muted); }
+  .approx { color: var(--muted); font-size: 12px; }
+  .mini-live { font-family: var(--font); font-size: 11px; font-weight: 500; color: var(--live); margin-left: 8px; display: inline-flex; align-items: center; gap: 5px; }
+  .mini-live::before { width: 5px; height: 5px; }
+  .pos { color: var(--up); } .neg { color: var(--down); }
+
+  table.daily td.dt, table.daily th:nth-child(2) { text-align: left; color: var(--muted); }
+  table.daily tr.empty td { color: #555; }
+  table.daily tr.now td { background: rgba(147,241,247,.06); }
+  .vs-line { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); font-size: 13px; color: var(--sub); display: flex; justify-content: space-between; align-items: baseline; }
+  .vs-line span { font-family: var(--mono); font-weight: 500; font-size: 18px; }
+
+  svg { display: block; width: 100%; height: auto; }
+  .axis { fill: var(--muted); font-size: 10px; font-family: "Chivo", "Noto Sans KR", sans-serif; }
+  .val { fill: var(--sub); font-size: 8.5px; font-family: "Chivo Mono", monospace; }
+  .val.cur { fill: var(--accent); }
+  .grid { stroke: var(--line); stroke-width: 1; }
+  .svg-live text { fill: var(--live); font-size: 10px; font-weight: 500; font-family: "Noto Sans KR", sans-serif; }
+  .svg-dot { fill: var(--live); animation: svgblink 1.2s ease-in-out infinite; }
+  @keyframes svgblink { 0%, 100% { opacity: 1; } 50% { opacity: .2; } }
+  svg rect { transition: opacity .15s; }
+  svg:hover rect:not(:hover) { opacity: .55; }
+
+  /* 예상 최종 초동 + 다음 목표 */
+  .proj-v { font-size: 26px; font-weight: 500; color: var(--sub); letter-spacing: -0.03em; line-height: 1.1; white-space: nowrap; }
+  #outlook { padding: 14px 20px; }
+  .avg-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  .avg-k { font-size: 14px; font-weight: 500; }
+  .avg-s { font-size: 11px; color: var(--muted); }
+  .avg-v { font-size: 20px; font-weight: 500; white-space: nowrap; }
+  .avg-v small { font-size: 12px; color: var(--sub); font-weight: 400; }
+  .proj-sub { font-size: 12px; color: var(--muted); margin-top: 6px; }
+  .caution { margin-top: 4px; font-size: 11px; line-height: 1.5; color: rgba(245,198,107,.75); }
+  .caution b { font-weight: 500; }
+  .rbar { position: relative; height: 12px; background: var(--track); border-radius: 999px; margin: 18px 0 6px; overflow: hidden; }
+  /* 현재 누적 게이지: 0에서 차오르는 애니메이션 + 빛이 훑고 지나가는 효과 */
+  .rbar .now {
+    position: absolute; inset: 0 auto 0 0; width: 0; border-radius: 999px; overflow: hidden;
+    background: linear-gradient(90deg, #cfd8dc, #ffffff);
+    box-shadow: 0 0 10px rgba(255,255,255,.35);
+    transition: width 1.6s cubic-bezier(.2,.8,.2,1);
+  }
+  .rbar .now::after {
+    content: ""; position: absolute; top: 0; bottom: 0; left: -40%; width: 40%;
+    background: linear-gradient(90deg, transparent, rgba(147,241,247,.85), transparent);
+    animation: sweep 2.6s ease-in-out 1.6s infinite;
+  }
+  @keyframes sweep { 0% { left: -40%; } 60%, 100% { left: 110%; } }
+  .proj-range { font-size: 13px; font-weight: 400; color: var(--muted); margin-left: 8px; letter-spacing: 0; }
+  .rbar .mid { position: absolute; top: 0; bottom: 0; width: 3px; margin-left: -1.5px; background: var(--accent); }
+  .rbar .band { position: absolute; top: 0; bottom: 0; background: repeating-linear-gradient(135deg, rgba(147,241,247,.6) 0 5px, rgba(147,241,247,.25) 5px 10px); }
+  .rlegend { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); }
+  .rlegend b { color: var(--ink); font-weight: 500; }
+  .goal-line { margin-top: 10px; font-size: 12px; color: var(--muted); }
+  .goal { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); }
+  .goal-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  .goal-head .k { font-size: 13px; color: var(--sub); }
+  .goal-head .left { font-size: 22px; font-weight: 700; color: var(--accent); white-space: nowrap; }
+  .gbar { height: 8px; background: var(--track); border-radius: 999px; margin: 10px 0 6px; overflow: hidden; }
+  .gbar i { display: block; height: 100%; background: var(--accent); border-radius: 999px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .chip2 { font-size: 11px; padding: 3px 8px; border-radius: 999px; background: var(--raise); color: var(--muted); }
+  .chip2.done { background: rgba(147,241,247,.14); color: var(--accent); }
+  .chip2.in { background: rgba(255,255,255,.06); color: var(--ink); border: 1px dashed rgba(147,241,247,.5); }
+  table.daily td, table.daily th { white-space: nowrap; }
+  table.daily td, table.daily th { padding-left: 4px; padding-right: 4px; }
+  .dsm { display: block; font-family: var(--font); font-size: 11px; color: var(--muted); }
+  table.daily td.cmp { color: var(--muted); }
+
+  footer { font-size: 12px; color: var(--muted); line-height: 1.7; margin-top: 18px; padding: 0 4px; }
+
+  /* 누적 추이 그래프 */
+  .trend { margin: 0 0 14px; position: relative; }
+  .trend-head { display: flex; justify-content: space-between; align-items: baseline; font-size: 12px; color: var(--sub); margin-bottom: 4px; }
+  .trend-head .hint { font-size: 11px; color: var(--muted); }
+  .grid.minor { opacity: .5; }
+  .axis.dim { fill: #555; }
+  .t-future { fill: rgba(255,255,255,.025); stroke: #2a2a2a; stroke-dasharray: 3 4; }
+  .t-future-label { fill: #555; font-size: 10px; font-family: "Noto Sans KR", sans-serif; }
+  .t-hit { fill: transparent; cursor: pointer; }
+  .t-hit.on { fill: rgba(147,241,247,.06); }
+  .t-tip {
+    position: absolute; transform: translate(-50%, -100%); pointer-events: none; z-index: 2;
+    background: #1d1d1d; border: 1px solid #333; border-radius: 8px; padding: 6px 9px;
+    display: flex; flex-direction: column; gap: 1px; white-space: nowrap; box-shadow: 0 6px 18px rgba(0,0,0,.5);
+  }
+  .t-tip b { font-size: 11px; font-weight: 500; color: var(--sub); }
+  .t-tip span { font-size: 13px; }
+  .t-tip span:nth-of-type(1) { color: var(--up); font-weight: 700; }
+  .trend-legend { display: flex; gap: 14px; justify-content: flex-end; font-size: 11px; color: var(--muted); margin-bottom: 2px; }
+  .trend-legend i { display: inline-block; vertical-align: middle; margin-right: 5px; }
+  .lg-line { width: 14px; height: 2px; background: var(--accent); }
+  .lg-bar { width: 8px; height: 10px; border-radius: 2px; background: #3a3a3a; }
+  .t-bar { fill: #3a3a3a; transform-box: fill-box; transform-origin: bottom; animation: grow .7s cubic-bezier(.2,.8,.2,1) both; }
+  .t-bar.today { fill: rgba(61,220,132,.55); }
+  .t-empty { fill: #1c1c1c; }
+  .t-day { fill: var(--muted); font-size: 9px; }
+  .t-line { fill: none; stroke: var(--accent); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round;
+    stroke-dasharray: 1; stroke-dashoffset: 1; animation: draw 1.6s cubic-bezier(.4,0,.2,1) .2s forwards;
+    filter: drop-shadow(0 0 6px rgba(147,241,247,.6)); }
+  .t-area { opacity: 0; animation: fadein 1s ease .9s forwards; }
+  .t-pt { fill: #000; stroke: var(--accent); stroke-width: 2; opacity: 0; animation: fadein .3s ease forwards; }
+  .t-pt.last { fill: var(--accent); }
+  .t-ping { fill: none; stroke: var(--accent); stroke-width: 2; transform-box: fill-box; transform-origin: center; animation: ping 1.8s ease-out 1.8s infinite; opacity: 0; }
+  .t-cum { fill: var(--ink); font-size: 12px; font-weight: 700; opacity: 0; animation: fadein .4s ease 1.6s forwards; }
+  @keyframes grow { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+  @keyframes draw { to { stroke-dashoffset: 0; } }
+  @keyframes fadein { to { opacity: 1; } }
+  @keyframes ping { 0% { transform: scale(1); opacity: .9; } 100% { transform: scale(3.2); opacity: 0; } }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; }
+    /* 예상 게이지 효과는 동작 줄이기 설정과 상관없이 항상 보여준다 */
+    .rbar .now { transition: width 1.6s cubic-bezier(.2,.8,.2,1) !important; }
+    .rbar .now::after { animation: sweep 2.6s ease-in-out 1.6s infinite !important; }
+    .ver-hint:not(.seen) { animation: breathe-pill 2.4s ease-in-out 1.8s infinite !important; }
+    .ver-hint:not(.seen) .caret { animation: caret-bob 1.2s ease-in-out infinite !important; }
+    /* 누적 추이 그래프 애니메이션도 항상 */
+    .t-bar { animation: grow .7s cubic-bezier(.2,.8,.2,1) both !important; }
+    .t-line { animation: draw 1.6s cubic-bezier(.4,0,.2,1) .2s forwards !important; }
+    .t-area { animation: fadein 1s ease .9s forwards !important; }
+    .t-pt { animation: fadein .3s ease forwards !important; }
+    .t-ping { animation: ping 1.8s ease-out 1.8s infinite !important; }
+    .t-cum { animation: fadein .4s ease 1.6s forwards !important; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">RESCENE 초동 트래커<small>비공식 팬 사이트 · 한터차트 기준</small></div>
+  </header>
+
+  <section class="card" id="hero"></section>
+  <section class="card" id="outlook"></section>
+  <section class="card" id="vs"></section>
+  <section class="card">
+    <h2 class="sec-title">역대 한터 초동 <small>단위: 장</small></h2>
+    <div id="chart"></div>
+  </section>
+  <section class="card">
+    <h2 class="sec-title">앨범별 기록</h2>
+    <table id="table" class="num"></table>
+  </section>
+
+  <footer>
+    판매량 출처: 한터차트 · 디지털 전용 발매작은 한터 초동이 없어 제외
+  </footer>
+</div>
+
+<script>
+// 시안용 샘플 데이터 (실서비스에서는 Firebase에서 불러옴)
+const ALBUMS = [
+  { title: "Re:Scene",   type: "싱글 1집", date: "2024-03-26", sales: 34100, colors: ["#f7a8c4", "#e0528a"] },
+  { title: "SCENEDROME", type: "미니 1집", date: "2024-08-27", sales: 33700, colors: ["#6fd3ff", "#2a6bd6"] },
+  { title: "Glow Up",    type: "미니 2집", date: "2025-02-05", sales: 41300, colors: ["#ffd36e", "#ff7aa8"] },
+  { title: "Dearest",    type: "싱글 2집", date: "2025-07-02", sales: 88245,  colors: ["#a9e5c9", "#4aa3a2"] },
+  { title: "lip bomb",   type: "미니 3집", date: "2025-11-25", sales: 104406, colors: ["#ff6b8b", "#b0177a"],
+    daily: [61820, 17450, 9860, 6120, 4010, 2980, 2166], dailySample: true },   // 시안용 예시값 (실제 수치로 바꾸면 dailySample 삭제)
+  { title: "PULSE",      type: "미니 4집", date: "2026-11-03", sales: 396957, live: true,
+    // Day1·Day3 누적은 보도 수치, Day2/3 분할은 예시값
+    daily: [131893, 92310, 65188, 107566],
+    asOf: "2026.11.06 13:00", colors: ["#93f1f7", "#1b3a4a"] },
+];
+
+const man = n => (n / 10000).toFixed(1).replace(/\.0$/, "") + "만";
+const comma = n => n.toLocaleString("ko-KR");
+const fmtDate = s => s.replaceAll("-", ".");
+const ymd = d => `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, "0")}.${String(d.getDate()).padStart(2, "0")}`;
+const endOf = s => { const d = new Date(s + "T00:00:00"); d.setDate(d.getDate() + 6); return d; };
+const TODAY = new Date();
+const sign = d => d >= 0 ? "▲" : "▼";
+// 커버: a.cover(이미지 파일 경로)가 있으면 그 이미지, 없으면 임시 그라데이션
+const coverBg = a => a.cover
+  ? `background-image:url('${a.cover}')`
+  : `background-image:linear-gradient(135deg, ${a.colors[0]}, ${a.colors[1]})`;
+
+// 오늘 판매량: 0부터 숫자가 올라가는 카운트업 후 톡 튀는 효과
+function countUp() {
+  const el = document.querySelector(".today .cnt");
+  if (!el) return;
+  const to = +el.dataset.to;
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) { el.textContent = comma(to); return; }
+  const dur = 1400, t0 = performance.now();
+  const step = now => {
+    const p = Math.min(1, (now - t0) / dur);
+    const eased = 1 - Math.pow(1 - p, 3);
+    el.textContent = comma(Math.round(to * eased));
+    if (p < 1) requestAnimationFrame(step);
+    else { const v = el.parentElement; v.classList.remove("bump"); void v.offsetWidth; v.classList.add("bump"); }
+  };
+  requestAnimationFrame(step);
+}
+
+// 예상 최종 초동
+// 1) 오늘(집계 중인 날)의 마감 판매량을 시간대 비중으로 추정한다.
+//    하루 판매가 시간대별로 아래 가중치만큼 나온다고 보고, 지금 시각까지의 비중으로 나눈다.
+//    (실시간 차트는 묶음으로 반영되기도 해서, 지금 숫자의 1.25배를 넘지 않게 제한)
+// 2) 남은 날은 직전 앨범의 일별 감소율을 적용하고, 토·일은 평일보다 20% 덜 팔린다고 본다.
+// 3) 가운데 값을 크게 보여주고, 감소 속도 ±8%·주말 감소 15~25% 차이로 좁은 범위를 함께 보여준다.
+const WEEKEND = { mid: 0.80, low: 0.75, high: 0.85 };
+const HOUR_W = [1,1,1,1,1,1,1,2,3,4,5,6,6,6,6,6,6,6,5,5,4,3,2,1]; // 0시~23시 판매 비중(가정)
+function dayShareAt(hh, mm) {
+  const total = HOUR_W.reduce((s, v) => s + v, 0);
+  const done = HOUR_W.slice(0, hh).reduce((s, v) => s + v, 0) + HOUR_W[hh] * (mm / 60);
+  return done / total;
+}
+const dayOf = (start, i) => { const d = new Date(start + "T00:00:00"); d.setDate(d.getDate() + i); return d; };
+const isWeekend = d => d.getDay() === 0 || d.getDay() === 6;
+function project(cur, ref) {
+  const k = cur.daily.length;
+  const t = cur.daily[k - 1];
+  const m = (cur.asOf || "").match(/(\d{1,2}):(\d{2})$/);
+  const share = m ? dayShareAt(+m[1], +m[2]) : 1;
+  const todayFinal = Math.max(t, Math.min(t / Math.max(share, 0.05), t * 1.25));
+  const run = (W, decayEase) => {
+    const todayBoost = todayFinal / t;
+    const wk = (start, i) => isWeekend(dayOf(start, i)) ? W : 1;
+    // 직전 앨범 감소율. 실제 수치면 그 앨범의 주말 효과를 먼저 제거하고,
+    // 예시값(dailySample)이면 주말 효과가 없는 평일 곡선으로 보고 그대로 쓴다.
+    const rw = (i) => ref.dailySample ? 1 : wk(ref.date, i);
+    const r = ref.daily.slice(0, -1).map((v, i) =>
+      (ref.daily[i + 1] / rw(i + 1)) / (v / rw(i)));
+    const tFinal = t * todayBoost;
+    let total = cur.sales + (tFinal - t);
+    let base = tFinal / wk(cur.date, k - 1);         // 평일 기준으로 환산한 오늘 판매
+    for (let i = k - 1; i < 6; i++) {
+      base *= Math.min(1, r[i] * decayEase);
+      total += base * wk(cur.date, i + 1);            // 남은 날이 주말이면 감소 적용
+    }
+    return Math.round(total);
+  };
+  return {
+    mid: run(WEEKEND.mid, 1),
+    low: run(WEEKEND.low, 0.92),
+    high: run(WEEKEND.high, 1.08),
+  };
+}
+
+// 누적 판매 추이 그래프: 일별 판매(막대) + 누적(선·면). 7일 칸을 미리 그리고 아직 안 온 날은 비워 둔다.
+function trendChart(cur, daily, isLive) {
+  if (!daily.length) return "";
+  const W = 340, H = 220, L = 40, R = 10, T = 26, B = 30;
+  const n = 7, slot = (W - L - R) / n;
+  const cums = daily.reduce((a, v) => (a.push((a.at(-1) || 0) + v), a), []);
+  const plotH = H - T - B;
+  // y축: 점선은 50,000장마다, 숫자는 100,000장마다 (0부터 시작)
+  const MINOR = 50000, MAJOR = 100000;
+  const yMax = Math.max(MAJOR, Math.ceil(Math.max(...cums) * 1.1 / MAJOR) * MAJOR);
+  const cx = i => L + slot * i + slot / 2;
+  const yC = v => T + plotH - (v / yMax) * plotH;
+  const start = new Date(cur.date + "T00:00:00");
+  let s = `<defs><linearGradient id="tg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#93f1f7" stop-opacity=".4"/><stop offset="1" stop-color="#93f1f7" stop-opacity="0"/></linearGradient></defs>`;
+  for (let v = 0; v <= yMax; v += MINOR) {
+    const yy = yC(v), major = v % MAJOR === 0;
+    s += `<line class="grid${major ? "" : " minor"}" x1="${L}" x2="${W - R}" y1="${yy}" y2="${yy}" ${v ? 'stroke-dasharray="2 3"' : ""}/>`;
+    if (major) s += `<text class="axis num" x="${L - 6}" y="${yy + 3}" text-anchor="end">${v ? v / 10000 + "만" : "0"}</text>`;
+  }
+  // 남은 기간(아직 안 온 날): 아주 흐린 배경 + 세로 점선
+  if (daily.length < n) {
+    const fx = L + slot * daily.length;
+    s += `<rect class="t-future" x="${fx}" y="${T}" width="${W - R - fx}" height="${plotH}"/>`;
+    s += `<text class="t-future-label" x="${(fx + W - R) / 2}" y="${T + plotH / 2}" text-anchor="middle">남은 기간</text>`;
+  }
+  for (let i = 0; i < n; i++) {
+    const d = new Date(start); d.setDate(d.getDate() + i);
+    const has = i < daily.length;
+    s += `<text class="axis${has ? "" : " dim"}" x="${cx(i)}" y="${H - B + 13}" text-anchor="middle">D${i + 1}</text>`;
+    s += `<text class="axis${has ? "" : " dim"}" x="${cx(i)}" y="${H - B + 25}" text-anchor="middle" ${isWeekend(d) ? 'style="fill:#ff8a8f"' : ""}>${"일월화수목금토"[d.getDay()]}</text>`;
+  }
+  // 누적 선 + 면
+  const pts = cums.map((v, i) => [cx(i), yC(v)]);
+  const line = pts.map((p, i) => (i ? "L" : "M") + p[0].toFixed(1) + " " + p[1].toFixed(1)).join(" ");
+  const area = `${line} L${pts.at(-1)[0].toFixed(1)} ${T + plotH} L${pts[0][0].toFixed(1)} ${T + plotH} Z`;
+  s += `<path class="t-area" d="${area}" fill="url(#tg)"/>`;
+  s += `<path class="t-line" d="${line}" pathLength="1"/>`;
+  pts.forEach((p, i) => {
+    const last = i === pts.length - 1;
+    s += `<circle class="t-pt${last ? " last" : ""}" cx="${p[0]}" cy="${p[1]}" r="${last ? 4.5 : 3}" style="animation-delay:${0.3 + i * 0.25}s"/>`;
+    if (last) {
+      s += `<circle class="t-ping" cx="${p[0]}" cy="${p[1]}" r="4.5"/>`;
+      const anchor = i >= 5 ? "end" : "middle";
+      s += `<text class="t-cum num" x="${p[0] + (anchor === "end" ? 6 : 0)}" y="${p[1] - 12}" text-anchor="${anchor}">${comma(cums[i])}</text>`;
+    }
+  });
+  // 누르면(또는 마우스를 올리면) 그날 판매량·누적을 보여주는 투명한 칸
+  cums.forEach((v, i) => {
+    const d = new Date(start); d.setDate(d.getDate() + i);
+    const today = isLive && i === cums.length - 1;
+    s += `<rect class="t-hit" x="${L + slot * i}" y="${T}" width="${slot}" height="${plotH}"
+      data-i="${i}" data-px="${cx(i)}" data-py="${pts[i][1]}"
+      data-t="Day ${i + 1} · ${ymd(d)} (${"일월화수목금토"[d.getDay()]})${today ? " · 실시간" : ""}"
+      data-v="+${comma(daily[i])}장" data-c="누적 ${comma(v)}장"/>`;
+  });
+  return `<div class="trend"><div class="trend-head"><span>누적 판매 추이</span><span class="hint">날짜를 누르면 상세</span></div>
+    <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="일별 누적 판매 추이 그래프">${s}</svg>
+    <div class="t-tip" hidden></div></div>`;
+}
+
+// 오늘 판매 → 버전별 판매량 팝업 (히어로 카드는 overflow:hidden이라 body에 띄운다)
+const verPop = Object.assign(document.createElement("div"), { className: "ver-pop", hidden: true });
+document.body.appendChild(verPop);
+// 버전별 보기를 한 번 열어본 사람에게는 반짝임 효과를 다시 보여주지 않는다 (이 브라우저에만 기억)
+function verSeen() { try { return localStorage.getItem("verSeen") === "1"; } catch { return false; } }
+function markVerSeen() {
+  try { localStorage.setItem("verSeen", "1"); } catch {}
+  document.querySelectorAll(".ver-hint").forEach(h => h.classList.add("seen"));
+}
+// 팝업 내용: ‹ › 로 Day 1부터 오늘까지 넘겨 본다
+function renderVerPop(dir = 0) {
+  const d = window.__verData;
+  const n = d.days.length;
+  d.idx = Math.max(0, Math.min(n - 1, d.idx + dir));
+  const day = d.days[d.idx];
+  const dt = new Date(day.date + "T00:00:00");
+  const prefix = new RegExp("^" + d.album.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\s*[:,]\\s*(미니앨범\\s*\\d+집\\s*,?\\s*)?");
+  const status = day.final ? "확정" : `실시간 · ${(day.asOf || "").slice(-5)} 기준`;
+  let body;
+  if (day.versions && day.versions.length) {
+    // 판매량 순이 아니라 고정 순서: Standard 맨 위, QR 맨 아래, 나머지는 ABC 순
+    // (날짜를 넘겨도 줄 위치가 바뀌지 않게)
+    const rank = n => /^standard/i.test(n) ? 0 : /^qr/i.test(n) ? 2 : 1;
+    const rows = day.versions
+      .map(r => ({ ...r, name: r.title.replace(prefix, "") || "기본" }))
+      .sort((a, b) => rank(a.name) - rank(b.name) || a.name.localeCompare(b.name, "en", { sensitivity: "base" }));
+    const vt = rows.reduce((s, r) => s + r.sales, 0);
+    body = rows.map(r => `
+      <div class="vp-row">
+        <span class="vp-name">${r.name}</span>
+        <span class="vp-num num">${comma(r.sales)} <em>(${(r.sales / vt * 100).toFixed(1)}%)</em></span>
+      </div>`).join("");
+  } else {
+    body = `<div class="vp-empty">이 날은 버전별 기록이 없어요<br><small>한터 일간 차트는 합계만 공개해서, 수집을 시작한 뒤부터 쌓여요</small></div>`;
+  }
+  verPop.innerHTML = `
+    <div class="vp-nav">
+      <button type="button" class="vp-arrow" data-dir="-1" aria-label="이전 날" ${d.idx === 0 ? "disabled" : ""}>‹</button>
+      <div class="vp-title"><b>Day ${d.idx + 1} 버전별 판매</b><span>${ymd(dt)} (${"일월화수목금토"[dt.getDay()]}) · ${status}</span></div>
+      <button type="button" class="vp-arrow" data-dir="1" aria-label="다음 날" ${d.idx === n - 1 ? "disabled" : ""}>›</button>
+    </div>
+    <div class="vp-dots">${d.days.map((_, i) => `<i class="${i === d.idx ? "on" : ""}"></i>`).join("")}</div>
+    <div class="vp-body" style="animation-name:${dir < 0 ? "vp-left" : dir > 0 ? "vp-right" : "none"}">${body}</div>
+    <div class="vp-total"><span>합계</span><span class="num">${comma(day.sales)}장</span></div>`;
+}
+function openVerPop(btn) {
+  const d = window.__verData;
+  if (!d || !d.days.length) return;
+  markVerSeen();
+  d.idx = d.days.length - 1;   // 열 때는 항상 오늘부터
+  renderVerPop(0);
+  verPop.hidden = false;
+  const r = btn.getBoundingClientRect();
+  const w = verPop.offsetWidth;
+  verPop.style.top = (window.scrollY + r.bottom + 8) + "px";
+  verPop.style.left = Math.max(8, Math.min(window.scrollX + r.right - w, window.scrollX + document.documentElement.clientWidth - w - 8)) + "px";
+  btn.classList.add("open");
+}
+function closeVerPop() {
+  verPop.hidden = true;
+  document.querySelectorAll(".today.open").forEach(b => b.classList.remove("open"));
+}
+document.addEventListener("click", e => {
+  const btn = e.target.closest?.(".today.has-ver");
+  if (btn) { verPop.hidden || !btn.classList.contains("open") ? openVerPop(btn) : closeVerPop(); return; }
+  if (!e.target.closest?.(".ver-pop")) closeVerPop();
+});
+// 팝업 안: ‹ › 버튼, 좌우 키, 손가락으로 밀기
+verPop.addEventListener("click", e => {
+  e.stopPropagation();   // 내용을 다시 그려도 바깥 클릭으로 오해해 닫히지 않게
+  const a = e.target.closest(".vp-arrow");
+  if (a && !a.disabled) renderVerPop(+a.dataset.dir);
+});
+let swipeX = null;
+verPop.addEventListener("touchstart", e => { swipeX = e.touches[0].clientX; }, { passive: true });
+verPop.addEventListener("touchend", e => {
+  if (swipeX == null) return;
+  const dx = e.changedTouches[0].clientX - swipeX;
+  if (Math.abs(dx) > 40) renderVerPop(dx < 0 ? 1 : -1);
+  swipeX = null;
+});
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape") closeVerPop();
+  if (!verPop.hidden && (e.key === "ArrowLeft" || e.key === "ArrowRight")) renderVerPop(e.key === "ArrowLeft" ? -1 : 1);
+});
+window.addEventListener("resize", closeVerPop);
+
+// 그래프 말풍선: 날짜 칸을 누르거나 마우스를 올리면 표시
+function showTip(hit) {
+  const box = hit.closest(".trend"), svg = box.querySelector("svg"), tip = box.querySelector(".t-tip");
+  const vb = svg.viewBox.baseVal, r = svg.getBoundingClientRect(), br = box.getBoundingClientRect();
+  const k = r.width / vb.width;
+  tip.innerHTML = `<b>${hit.dataset.t}</b><span class="num">${hit.dataset.v}</span><span class="num">${hit.dataset.c}</span>`;
+  tip.hidden = false;
+  const x = r.left - br.left + (+hit.dataset.px) * k, y = r.top - br.top + (+hit.dataset.py) * k;
+  const half = tip.offsetWidth / 2;
+  tip.style.left = Math.min(Math.max(x, half + 2), br.width - half - 2) + "px";
+  tip.style.top = (y - 12) + "px";
+  box.querySelectorAll(".t-hit").forEach(h => h.classList.toggle("on", h === hit));
+}
+document.addEventListener("pointerover", e => { const h = e.target.closest?.(".t-hit"); if (h) showTip(h); });
+document.addEventListener("click", e => {
+  const h = e.target.closest?.(".t-hit");
+  if (h) return showTip(h);
+  document.querySelectorAll(".t-tip").forEach(t => t.hidden = true);
+  document.querySelectorAll(".t-hit.on").forEach(t => t.classList.remove("on"));
+});
+document.addEventListener("pointerout", e => {
+  if (e.pointerType === "mouse" && e.target.closest?.(".t-hit") && !e.relatedTarget?.closest?.(".t-hit")) {
+    document.querySelectorAll(".t-tip").forEach(t => t.hidden = true);
+  }
+});
+
+function render(mode) {
+  const list = mode === "live" ? ALBUMS : ALBUMS.filter(a => !a.live);
+  const cur = list[list.length - 1];
+  const prev = list[list.length - 2];
+  const others = list.slice(0, -1);
+  const isLive = !!cur.live;
+  const bestBefore = Math.max(...others.map(a => a.sales));
+  const ratio = cur.sales / prev.sales;
+  const diff = cur.sales - prev.sales;
+  const beat = cur.sales > prev.sales;
+  const best = cur.sales > bestBefore;
+
+  // 현재 앨범
+  const end = endOf(cur.date);
+  const dday = Math.ceil((end - new Date(TODAY.toDateString())) / 86400000);
+  const status = isLive
+    ? `<span class="live">실시간 집계 중 · D-${dday} (${ymd(end)} 마감)</span>`
+    : `<span class="final">초동 확정</span>`;
+  const tags = [];
+  if (beat) tags.push(`<span class="tag up">▲ ${isLive ? "직전 초동 갱신 확정" : "직전 초동 갱신"}</span>`);
+  else tags.push(isLive ? `<span class="tag wait">직전 초동까지 ${comma(prev.sales - cur.sales)}장</span>` : `<span class="tag down">▼ 직전 초동 미달</span>`);
+  if (best) tags.push(`<span class="tag best">역대 최고 초동</span>`);
+
+  const todayN = isLive && cur.daily ? cur.daily[cur.daily.length - 1] : null;
+  const hasVer = !!(cur.todayVersions && cur.todayVersions.length);
+  const todayBox = todayN != null
+    ? `<button type="button" class="today num${hasVer ? " has-ver" : ""}" ${hasVer ? 'aria-haspopup="dialog"' : "disabled"}>
+        <span class="k">TODAY · 오늘 판매</span>
+        <span class="v"><span class="arw">▲</span><span class="cnt" data-to="${todayN}">0</span></span>
+        ${hasVer ? `<span class="ver-hint${verSeen() ? " seen" : ""}">버전별 보기 <i class="caret">▾</i></span>` : ""}</button>`
+    : "";
+  window.__verData = hasVer ? { days: cur.dayDetails || [], album: cur.title, idx: (cur.dayDetails || []).length - 1 } : null;
+  document.getElementById("hero").innerHTML = `
+    <div class="hero-top">
+      <div class="cover" style="${coverBg(cur)};background-size:cover;background-position:center">${cur.cover ? "" : cur.title}</div>
+      <div class="meta">
+        <h1>${cur.title}</h1>
+        <div class="type">${cur.type} · ${fmtDate(cur.date)} 발매</div>
+        ${status}
+      </div>
+    </div>
+    <div class="big-label">현재 누적 판매량</div>
+    <div class="big" style="margin-top:6px"><b class="num">${comma(cur.sales)}<small> 장</small></b>${todayBox}</div>
+    <div class="asof num">${isLive ? "집계 기준 (KST) " + cur.asOf : "한터 초동 확정치"}</div>
+    <div class="tags">${tags.join("")}</div>`;
+  countUp();
+
+  // 일평균 판매량 (집계 중일 때만): 하루가 다 끝난(확정) 날만 평균낸다
+  const ol = document.getElementById("outlook");
+  const doneDays = isLive && cur.daily ? cur.daily.slice(0, -1) : [];
+  if (false && doneDays.length) { // 일평균 카드는 사용하지 않음
+    const avg = Math.round(doneDays.reduce((s, v) => s + v, 0) / doneDays.length);
+    ol.hidden = false;
+    ol.innerHTML = `
+      <div class="avg-row">
+        <div><div class="avg-k">일평균 판매량</div><div class="avg-s">Day 1~${doneDays.length} 확정 기준</div></div>
+        <div class="avg-v num">${comma(avg)}<small> 장</small></div>
+      </div>`;
+  } else {
+    ol.hidden = true;
+  }
+
+  // 일별 판매량 (Day 1~7) + 직전 앨범 같은 날 누적
+  const start = new Date(cur.date + "T00:00:00");
+  const daily = cur.daily || [];
+  const pd = null; // 직전 앨범 같은 날 누적 칸은 사용하지 않음
+  let cum = 0, pcum = 0, drows = "";
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(start); d.setDate(d.getDate() + i);
+    const has = i < daily.length;
+    const isToday = isLive && i === daily.length - 1;
+    if (has) cum += daily[i];
+    if (pd) pcum += pd[i];
+    drows += `<tr class="${has ? "" : "empty"} ${isToday ? "now" : ""}">
+      <td><span class="t">Day ${i + 1}</span>${isToday ? '<span class="mini-live">실시간 집계 중</span>' : ""}<span class="dsm">${ymd(d)} (${"일월화수목금토"[d.getDay()]})</span></td>
+      <td>${has ? "+" + comma(daily[i]) : "—"}</td>
+      <td>${has ? comma(cum) : "—"}</td>
+      ${pd ? `<td class="cmp">${comma(pcum)}</td>` : ""}</tr>`;
+  }
+  document.getElementById("vs").innerHTML = `
+    <h2 class="sec-title">일별 판매량 <small>단위: 장</small></h2>
+    ${trendChart(cur, daily, isLive)}
+    <table class="num daily">
+      <thead><tr><th>일차</th><th>판매량</th><th>누적</th>${pd ? `<th style="white-space:nowrap">직전 누적<span class="dsm">${prev.title}</span></th>` : ""}</tr></thead>
+      <tbody>${drows}</tbody>
+    </table>`;
+
+  // 역대 차트
+  const W = 340, H = 210, top = 34, bottom = 34, left = 44, right = 2;
+  const dataMax = Math.max(...list.map(a => a.sales));
+  // y축 눈금: 최대값에 맞춰 1만/5만/10만/20만… 단위로 4~5칸
+  const stepY = [10000, 20000, 50000, 100000, 200000, 500000].find(s => dataMax / s <= 5) || 1000000;
+  const maxV = Math.ceil(dataMax / stepY) * stepY;
+  const n = list.length, gap = 10;
+  const bw = (W - left - right - gap * (n - 1)) / n;
+  const plotH = H - top - bottom;
+  let bars = "";
+  for (let v = 0; v <= maxV; v += stepY) {
+    const yy = H - bottom - (v / maxV) * plotH;
+    bars += `<line class="grid" x1="${left}" x2="${W - right}" y1="${yy}" y2="${yy}" ${v ? 'stroke-dasharray="2 3"' : ""}/>`;
+    bars += `<text class="axis" x="${left - 6}" y="${yy + 3}" text-anchor="end">${comma(v)}</text>`;
+  }
+  list.forEach((a, i) => {
+    const h = (a.sales / maxV) * plotH;
+    const x = left + i * (bw + gap), y = H - bottom - h;
+    const isCur = a === cur;
+    bars += `<rect x="${x}" y="${y}" width="${bw}" height="${h}" rx="3" fill="${isCur ? "var(--accent)" : "var(--prev)"}"><title>${a.title} ${comma(a.sales)}장</title></rect>`;
+    bars += `<text class="val${isCur ? " cur" : ""}" x="${x + bw / 2}" y="${y - 5}" text-anchor="middle">${a.approx ? "≈" : ""}${comma(a.sales)}</text>`;
+    if (a.live) {
+      // 집계 중 표시: 깜빡이는 초록 점 + 라벨
+      bars += `<g class="svg-live"><circle class="svg-dot" cx="${x + bw - 68}" cy="${y - 23}" r="3"/><text x="${x + bw}" y="${y - 20}" text-anchor="end">실시간 집계 중</text></g>`;
+    }
+    bars += `<text class="axis" x="${x + bw / 2}" y="${H - bottom + 14}" text-anchor="middle">${a.title.length > 8 ? a.title.slice(0, 7) + "…" : a.title}</text>`;
+    bars += `<text class="axis" x="${x + bw / 2}" y="${H - bottom + 27}" text-anchor="middle">${a.date.slice(0, 7).replace("-", ".")}</text>`;
+  });
+  document.getElementById("chart").innerHTML =
+    `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="앨범별 한터 초동 막대 차트">${bars}</svg>`;
+
+  // 앨범별 기록
+  let rows = `<thead><tr><th>앨범</th><th>초동</th></tr></thead><tbody>`;
+  [...list].reverse().forEach(a => {
+    const idx = list.indexOf(a);
+    const p = list[idx - 1];
+    let change = `<span class="approx">—</span>`;
+    if (p) {
+      const r = (a.sales / p.sales - 1) * 100;
+      const pre = (a.approx || p.approx) ? '<span class="approx">≈</span>' : "";
+      change = `${pre}<span class="${r >= 0 ? "pos" : "neg"}">${sign(r)} ${Math.abs(r).toFixed(1)}%</span>`;
+    }
+    rows += `<tr>
+      <td><div class="alb"><div class="thumb" style="${coverBg(a)}"></div><div><div class="t">${a.title}${a.live ? '<span class="mini-live">실시간 집계 중</span>' : ""}</div><div class="d">${a.type}</div></div></div></td>
+      <td>${a.approx ? '<span class="approx">≈</span>' : ""}${comma(a.sales)}${a.approx ? '<span class="exact">확인 중</span>' : ""}</td></tr>`;
+  });
+  document.getElementById("table").innerHTML = rows + "</tbody>";
+}
+
+// 스크래퍼가 만든 data/sales.json을 읽어 현재 앨범 숫자를 덮어쓴다 (5분마다 다시 읽음)
+async function loadLive() {
+  try {
+    // ?t= 를 붙여 GitHub Pages·브라우저 캐시를 피하고 항상 최신 파일을 받는다
+    const r = await fetch(`data/sales.json?t=${Date.now()}`, { cache: "no-store" });
+    if (!r.ok) return false;
+    const j = await r.json();
+    const a = ALBUMS.find(x => x.title === j.album);
+    if (!a) return false;
+    const dates = Object.keys(j.days).sort();
+    a.daily = dates.map(d => j.days[d].sales);
+    a.sales = a.daily.reduce((s, v) => s + v, 0);
+    const live = dates.map(d => j.days[d]).find(x => !x.final);
+    a.todayVersions = live?.versions || null;   // 실시간 차트의 버전별 판매량
+    // 날짜별 상세 (버전별 기록은 스크래퍼가 그날 실시간 차트에서 받아둔 경우에만 있음)
+    a.dayDetails = dates.map(d => ({ date: d, ...j.days[d] }));
+    if (live?.asOf) {
+      const [d, t] = live.asOf.split(" ");
+      a.asOf = `${d.replaceAll("-", ".")} ${t}`;
+    }
+    return true;
+  } catch { return false; }
+}
+// 집계 중인 앨범(live)이 있으면 그 앨범을, 없으면 가장 최근 확정 앨범을 보여준다
+const currentMode = () => ALBUMS.some(a => a.live) ? "live" : "idle";
+loadLive().finally(() => render(currentMode()));
+setInterval(() => loadLive().then(ok => ok && render(currentMode())), 5 * 60 * 1000);
+</script>
+</body>
+</html>
