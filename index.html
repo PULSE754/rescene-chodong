@@ -929,7 +929,8 @@ async function loadLive() {
     const dates = Object.keys(j.days).sort();
     a.daily = dates.map(d => j.days[d].sales);
     a.sales = a.daily.reduce((s, v) => s + v, 0);
-    const live = dates.map(d => j.days[d]).find(x => !x.final);
+    // 자정 직후에는 어제(확정 대기)와 오늘이 둘 다 '집계 중'일 수 있으니 가장 최근 날을 쓴다
+    const live = dates.map(d => j.days[d]).findLast(x => !x.final);
     a.todayVersions = live?.versions || null;   // 실시간 차트의 버전별 판매량
     // 날짜별 상세 (버전별 기록은 스크래퍼가 그날 실시간 차트에서 받아둔 경우에만 있음)
     a.dayDetails = dates.map(d => ({ date: d, ...j.days[d] }));
