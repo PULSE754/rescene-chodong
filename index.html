@@ -234,7 +234,7 @@
     0%, 100% { outline-color: rgba(147,241,247,.45); box-shadow: 0 0 4px rgba(147,241,247,.15), inset 0 0 6px rgba(147,241,247,.05); }
     50% { outline-color: rgba(147,241,247,1); box-shadow: 0 0 14px rgba(147,241,247,.55), inset 0 0 10px rgba(147,241,247,.12); }
   }
-  table.daily tr.sel td { background: rgba(147,241,247,.10); }
+  table.daily tr.sel td, table.daily tr.hov td { background: rgba(147,241,247,.10); }
   table.daily tr.sel td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
   table.daily tr.now td { background: rgba(147,241,247,.06); }
   .vs-line { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); font-size: 13px; color: var(--sub); display: flex; justify-content: space-between; align-items: baseline; }
@@ -742,7 +742,21 @@ function hideTrendTip() {
 }
 document.addEventListener("pointermove", e => {
   if (pinnedTip) return;
-  if (e.pointerType === "mouse" && !e.target.closest?.(".t-hit")) hideTrendTip();
+  if (e.pointerType === "mouse" && !e.target.closest?.(".t-hit, tr[data-day]")) {
+    hideTrendTip();
+    document.querySelectorAll("tr.hov").forEach(r => r.classList.remove("hov"));
+  }
+});
+// 일별 표의 Day 줄에 마우스를 올리면 위 그래프의 같은 날 말풍선이 뜬다 (내리면 사라짐)
+document.addEventListener("pointerover", e => {
+  if (e.pointerType !== "mouse" || pinnedTip) return;
+  const tr = e.target.closest?.("tr[data-day]");
+  if (!tr) return;
+  const hit = document.querySelectorAll(".t-hit")[+tr.dataset.day];
+  if (!hit) return;
+  document.querySelectorAll("tr.hov").forEach(r => r.classList.remove("hov"));
+  tr.classList.add("hov");
+  showTip(hit);
 });
 document.addEventListener("pointerleave", () => { if (!pinnedTip) hideTrendTip(); });
 // 그래프 영역(.trend) 밖으로 마우스가 나가는 순간 닫기 (빠르게 빠져나가도 확실하게)
