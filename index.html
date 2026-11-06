@@ -438,7 +438,7 @@
 </style>
 </head>
 <body>
-<div class="ticker" id="ticker" hidden><div class="tk-label">MELON</div><div class="tk-view"><div class="tk-track" id="tkTrack"></div></div></div>
+<div class="ticker" id="ticker" hidden><div class="tk-view"><div class="tk-track" id="tkTrack"></div></div></div>
 <div class="wrap">
   <header>
     <div class="brand">RESCENE 초동 트래커<small>비공식 팬 사이트 · 한터차트 기준</small></div>
@@ -976,7 +976,6 @@ async function loadMelon() {
     if (!m?.songs?.length) return;
     const h = +m.asOf.slice(11, 13);
     const when = `${h < 12 ? "오전" : "오후"} ${h % 12 || 12}시 기준`;
-    document.querySelector(".tk-label").innerHTML = `MELON <span>${when}</span>`;
     const items = [...m.songs].sort((a, b) => a.rank - b.rank).map(s => {
       const ch = s.change > 0 ? `<span class="up">▲${s.change}</span>` : s.change < 0 ? `<span class="down">▼${-s.change}</span>`
         : s.change === "NEW" ? `<span class="up">NEW</span>` : `<span class="same">–</span>`;
