@@ -231,6 +231,8 @@
   table.daily td.dt, table.daily th:nth-child(2) { text-align: left; color: var(--muted); }
   table.daily tr.empty td { color: #555; }
   table.daily tr.pick { cursor: pointer; }
+  /* 판매량과 누적 숫자 사이 간격 넓히기 */
+  table.daily td:last-child, table.daily th:last-child { padding-left: 22px; }
   /* 오늘(실시간) 줄: 그래프 선처럼 청록으로 빛나는 테두리가 숨 쉬듯 밝아졌다 어두워진다 */
   table.daily tr.now {
     outline: 1.5px solid var(--accent); outline-offset: -1.5px; border-radius: 8px;
