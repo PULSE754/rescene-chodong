@@ -327,6 +327,7 @@
   }
   .h-tip b { color: var(--ink); font-size: 13px; }
   .h-tip .live-t { color: var(--live); }
+  .h-tip .song { color: var(--ink); }
 
   /* 새 집계 반영 때의 반응 */
   .calm .t-line { animation: none !important; stroke-dashoffset: 0; }
@@ -431,13 +432,13 @@
 <script>
 // 시안용 샘플 데이터 (실서비스에서는 Firebase에서 불러옴)
 const ALBUMS = [
-  { title: "Re:Scene", cover: "covers/rescene.jpg",   type: "싱글 1집", date: "2024-03-26", sales: 34100, colors: ["#f7a8c4", "#e0528a"] },
-  { title: "SCENEDROME", cover: "covers/scenedrome.jpg", type: "미니 1집", date: "2024-08-27", sales: 33700, colors: ["#6fd3ff", "#2a6bd6"] },
-  { title: "Glow Up", cover: "covers/glowup.jpg",    type: "미니 2집", date: "2025-02-05", sales: 41300, colors: ["#ffd36e", "#ff7aa8"] },
-  { title: "Dearest", cover: "covers/dearest.jpg",    type: "싱글 2집", date: "2025-07-02", sales: 88245,  colors: ["#a9e5c9", "#4aa3a2"] },
-  { title: "lip bomb", cover: "covers/lipbomb.jpg",   type: "미니 3집", date: "2025-11-25", sales: 104406, colors: ["#ff6b8b", "#b0177a"],
+  { title: "Re:Scene", song: "UhUh", cover: "covers/rescene.jpg",   type: "싱글 1집", date: "2024-03-26", sales: 34100, colors: ["#f7a8c4", "#e0528a"] },
+  { title: "SCENEDROME", song: "LOVE ATTACK, Pinball", cover: "covers/scenedrome.jpg", type: "미니 1집", date: "2024-08-27", sales: 33700, colors: ["#6fd3ff", "#2a6bd6"] },
+  { title: "Glow Up", song: "Glow Up", cover: "covers/glowup.jpg",    type: "미니 2집", date: "2025-02-05", sales: 41300, colors: ["#ffd36e", "#ff7aa8"] },
+  { title: "Dearest", song: "Deja Vu", cover: "covers/dearest.jpg",    type: "싱글 2집", date: "2025-07-02", sales: 88245,  colors: ["#a9e5c9", "#4aa3a2"] },
+  { title: "lip bomb", song: "Heart Drop, Bloom", cover: "covers/lipbomb.jpg",   type: "미니 3집", date: "2025-11-25", sales: 104406, colors: ["#ff6b8b", "#b0177a"],
     daily: [61820, 17450, 9860, 6120, 4010, 2980, 2166], dailySample: true },   // 시안용 예시값 (실제 수치로 바꾸면 dailySample 삭제)
-  { title: "PULSE", cover: "covers/pulse.jpg",      type: "미니 4집", date: "2026-11-03", sales: 396957, live: true,
+  { title: "PULSE", song: "With", cover: "covers/pulse.jpg",      type: "미니 4집", date: "2026-11-03", sales: 396957, live: true,
     // Day1·Day3 누적은 보도 수치, Day2/3 분할은 예시값
     daily: [131893, 92310, 65188, 107566],
     asOf: "2026.11.06 13:00", colors: ["#93f1f7", "#1b3a4a"] },
@@ -850,7 +851,7 @@ function render(mode, upd = null) {
     const w = (a.sales / hMax * 100).toFixed(2);
     return `
       <button type="button" class="h-row${a === cur ? " cur" : ""}"
-        data-tip="${a.title}|${a.type} · ${ymd(d)} (${"일월화수목금토"[d.getDay()]}) 발매|${a.live ? "실시간 집계 중 · 아직 확정 전" : "한터 초동 확정"}">
+        data-tip="${a.title}|${a.type} · ${ymd(d)} (${"일월화수목금토"[d.getDay()]}) 발매|${a.song ? "타이틀곡 · " + a.song : ""}|${a.live ? "실시간 집계 중 · 아직 확정 전" : "한터 초동 확정"}">
         <span class="thumb" style="${coverBg(a)}"></span>
         <span class="h-main">
           <span class="h-top">
@@ -873,8 +874,8 @@ document.addEventListener("click", e => {
   if (row.classList.contains("on")) { row.classList.remove("on"); histTip.hidden = true; return; }
   document.querySelectorAll(".h-row.on").forEach(r => r.classList.remove("on"));
   row.classList.add("on");
-  const [t, info, state] = row.dataset.tip.split("|");
-  histTip.innerHTML = `<b>${t}</b><span>${info}</span><span class="${row.classList.contains("cur") ? "live-t" : ""}">${state}</span>`;
+  const [t, info, song, state] = row.dataset.tip.split("|");
+  histTip.innerHTML = `<b>${t}</b><span>${info}</span>${song ? `<span class="song">♪ ${song.replace("타이틀곡 · ", "타이틀곡 ")}</span>` : ""}<span class="${row.classList.contains("cur") ? "live-t" : ""}">${state}</span>`;
   histTip.hidden = false;
   const r = row.getBoundingClientRect();
   histTip.style.top = (window.scrollY + r.top - histTip.offsetHeight - 6) + "px";
