@@ -219,6 +219,9 @@
 
   table.daily td.dt, table.daily th:nth-child(2) { text-align: left; color: var(--muted); }
   table.daily tr.empty td { color: #555; }
+  table.daily tr.pick { cursor: pointer; }
+  table.daily tr.sel td { background: rgba(147,241,247,.10); }
+  table.daily tr.sel td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
   table.daily tr.now td { background: rgba(147,241,247,.06); }
   .vs-line { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); font-size: 13px; color: var(--sub); display: flex; justify-content: space-between; align-items: baseline; }
   .vs-line span { font-family: var(--mono); font-weight: 500; font-size: 18px; }
@@ -282,6 +285,35 @@
 
   footer { font-size: 12px; color: var(--muted); line-height: 1.7; margin-top: 18px; padding: 0 4px; }
 
+  /* 역대 한터 초동: 가로 막대 리스트 */
+  .hist { display: flex; flex-direction: column; }
+  .h-row {
+    display: flex; align-items: center; gap: 12px; width: 100%; text-align: left;
+    background: none; border: 0; border-top: 1px solid var(--line); padding: 12px 4px; margin: 0;
+    font: inherit; color: inherit; cursor: pointer; border-radius: 8px; transition: background-color .15s;
+  }
+  .h-row:first-child { border-top: 0; }
+  .h-row:hover, .h-row.on { background: var(--raise); }
+  .h-row:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .h-row .thumb { width: 40px; height: 40px; border-radius: 6px; flex: none; }
+  .h-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 7px; }
+  .h-top { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+  .h-name { font-weight: 500; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: inline-flex; align-items: center; }
+  .h-num { font-weight: 700; font-size: 15px; white-space: nowrap; }
+  .h-row.cur .h-num { color: var(--accent); font-size: 17px; }
+  .h-bar { height: 6px; border-radius: 999px; background: var(--track); overflow: hidden; display: block; }
+  .h-bar i { display: block; height: 100%; width: var(--w); border-radius: 999px; background: #4a4a4a; transform-origin: left; animation: hfill .9s cubic-bezier(.2,.8,.2,1) both; }
+  .h-row.cur .h-bar { height: 8px; }
+  .h-row.cur .h-bar i { background: linear-gradient(90deg, #5fd8df, var(--accent)); box-shadow: 0 0 10px rgba(147,241,247,.5); }
+  @keyframes hfill { from { transform: scaleX(0); } }
+  .h-tip {
+    position: absolute; z-index: 20; pointer-events: none; display: flex; flex-direction: column; gap: 1px;
+    background: #1d1d1d; border: 1px solid #333; border-radius: 8px; padding: 7px 10px; font-size: 12px;
+    color: var(--sub); box-shadow: 0 8px 22px rgba(0,0,0,.55); white-space: nowrap; animation: popin .15s ease-out;
+  }
+  .h-tip b { color: var(--ink); font-size: 13px; }
+  .h-tip .live-t { color: var(--live); }
+
   /* 누적 추이 그래프 */
   .trend { margin: 0 0 14px; position: relative; }
   .trend-head { display: flex; justify-content: space-between; align-items: baseline; font-size: 12px; color: var(--sub); margin-bottom: 4px; }
@@ -328,6 +360,7 @@
     .rbar .now::after { animation: sweep 2.6s ease-in-out 1.6s infinite !important; }
     .ver-hint:not(.seen) { animation: breathe-pill 2.4s ease-in-out 1.8s infinite !important; }
     .ver-hint:not(.seen) .caret { animation: caret-bob 1.2s ease-in-out infinite !important; }
+    .h-bar i { animation: hfill .9s cubic-bezier(.2,.8,.2,1) both !important; }
     /* 누적 추이 그래프 애니메이션도 항상 */
     .t-bar { animation: grow .7s cubic-bezier(.2,.8,.2,1) both !important; }
     .t-line { animation: draw 1.6s cubic-bezier(.4,0,.2,1) .2s forwards !important; }
@@ -348,12 +381,8 @@
   <section class="card" id="outlook"></section>
   <section class="card" id="vs"></section>
   <section class="card">
-    <h2 class="sec-title">역대 한터 초동 <small>단위: 장</small></h2>
-    <div id="chart"></div>
-  </section>
-  <section class="card">
-    <h2 class="sec-title">앨범별 기록</h2>
-    <table id="table" class="num"></table>
+    <h2 class="sec-title">역대 한터 초동 <small>단위: 장 · 누르면 상세</small></h2>
+    <div id="history" class="hist"></div>
   </section>
 
   <footer>
@@ -611,18 +640,49 @@ function showTip(hit) {
   tip.style.top = (y - 12) + "px";
   box.querySelectorAll(".t-hit").forEach(h => h.classList.toggle("on", h === hit));
 }
-document.addEventListener("pointerover", e => { const h = e.target.closest?.(".t-hit"); if (h) showTip(h); });
+document.addEventListener("pointerover", e => {
+  const h = e.target.closest?.(".t-hit");
+  if (!h) return;
+  // 그래프에 직접 마우스를 올리면 표에서 고정한 선택은 풀고 마우스를 따라간다
+  pinnedTip = false;
+  document.querySelectorAll("tr.sel").forEach(r => r.classList.remove("sel"));
+  showTip(h);
+});
 document.addEventListener("click", e => {
   const h = e.target.closest?.(".t-hit");
   if (h) return showTip(h);
+  // 아래 일별 표의 Day 줄을 누르면 위 그래프의 같은 날에 말풍선을 고정해서 띄운다
+  const tr = e.target.closest?.("tr[data-day]");
+  if (tr) {
+    const hit = document.querySelectorAll(".t-hit")[+tr.dataset.day];
+    if (!hit) return;
+    const already = tr.classList.contains("sel");
+    document.querySelectorAll("tr.sel").forEach(r => r.classList.remove("sel"));
+    if (already) { pinnedTip = false; return hideTrendTip(); }
+    tr.classList.add("sel");
+    pinnedTip = true;
+    showTip(hit);
+    const box = hit.closest(".trend").getBoundingClientRect();
+    if (box.top < 0 || box.bottom > innerHeight) hit.closest(".trend").scrollIntoView({ behavior: "smooth", block: "center" });
+    return;
+  }
+  pinnedTip = false;
+  document.querySelectorAll("tr.sel").forEach(r => r.classList.remove("sel"));
+  hideTrendTip();
+});
+// 마우스가 날짜 칸 밖으로 나가면 말풍선을 바로 닫는다 (마우스일 때만; 터치는 누르면 열고 바깥을 누르면 닫음)
+// 표에서 눌러 연 말풍선(pinnedTip)은 마우스가 움직여도 유지하고, 다른 곳을 누르면 닫힌다
+let pinnedTip = false;
+function hideTrendTip() {
   document.querySelectorAll(".t-tip").forEach(t => t.hidden = true);
   document.querySelectorAll(".t-hit.on").forEach(t => t.classList.remove("on"));
+}
+document.addEventListener("pointermove", e => {
+  if (pinnedTip) return;
+  if (e.pointerType === "mouse" && !e.target.closest?.(".t-hit")) hideTrendTip();
 });
-document.addEventListener("pointerout", e => {
-  if (e.pointerType === "mouse" && e.target.closest?.(".t-hit") && !e.relatedTarget?.closest?.(".t-hit")) {
-    document.querySelectorAll(".t-tip").forEach(t => t.hidden = true);
-  }
-});
+document.addEventListener("pointerleave", () => { if (!pinnedTip) hideTrendTip(); });
+window.addEventListener("scroll", () => { if (!pinnedTip && matchMedia("(hover: hover)").matches) hideTrendTip(); }, { passive: true });
 
 function render(mode) {
   const list = mode === "live" ? ALBUMS : ALBUMS.filter(a => !a.live);
@@ -697,7 +757,7 @@ function render(mode) {
     const isToday = isLive && i === daily.length - 1;
     if (has) cum += daily[i];
     if (pd) pcum += pd[i];
-    drows += `<tr class="${has ? "" : "empty"} ${isToday ? "now" : ""}">
+    drows += `<tr class="${has ? "pick" : "empty"} ${isToday ? "now" : ""}" ${has ? `data-day="${i}"` : ""}>
       <td><span class="t">Day ${i + 1}</span>${isToday ? '<span class="mini-live">실시간 집계 중</span>' : ""}<span class="dsm">${ymd(d)} (${"일월화수목금토"[d.getDay()]})</span></td>
       <td>${has ? "+" + comma(daily[i]) : "—"}</td>
       <td>${has ? comma(cum) : "—"}</td>
@@ -711,54 +771,42 @@ function render(mode) {
       <tbody>${drows}</tbody>
     </table>`;
 
-  // 역대 차트
-  const W = 340, H = 210, top = 34, bottom = 34, left = 44, right = 2;
-  const dataMax = Math.max(...list.map(a => a.sales));
-  // y축 눈금: 최대값에 맞춰 1만/5만/10만/20만… 단위로 4~5칸
-  const stepY = [10000, 20000, 50000, 100000, 200000, 500000].find(s => dataMax / s <= 5) || 1000000;
-  const maxV = Math.ceil(dataMax / stepY) * stepY;
-  const n = list.length, gap = 10;
-  const bw = (W - left - right - gap * (n - 1)) / n;
-  const plotH = H - top - bottom;
-  let bars = "";
-  for (let v = 0; v <= maxV; v += stepY) {
-    const yy = H - bottom - (v / maxV) * plotH;
-    bars += `<line class="grid" x1="${left}" x2="${W - right}" y1="${yy}" y2="${yy}" ${v ? 'stroke-dasharray="2 3"' : ""}/>`;
-    bars += `<text class="axis" x="${left - 6}" y="${yy + 3}" text-anchor="end">${comma(v)}</text>`;
-  }
-  list.forEach((a, i) => {
-    const h = (a.sales / maxV) * plotH;
-    const x = left + i * (bw + gap), y = H - bottom - h;
-    const isCur = a === cur;
-    bars += `<rect x="${x}" y="${y}" width="${bw}" height="${h}" rx="3" fill="${isCur ? "var(--accent)" : "var(--prev)"}"><title>${a.title} ${comma(a.sales)}장</title></rect>`;
-    bars += `<text class="val${isCur ? " cur" : ""}" x="${x + bw / 2}" y="${y - 5}" text-anchor="middle">${a.approx ? "≈" : ""}${comma(a.sales)}</text>`;
-    if (a.live) {
-      // 집계 중 표시: 깜빡이는 초록 점 + 라벨
-      bars += `<g class="svg-live"><circle class="svg-dot" cx="${x + bw - 68}" cy="${y - 23}" r="3"/><text x="${x + bw}" y="${y - 20}" text-anchor="end">실시간 집계 중</text></g>`;
-    }
-    bars += `<text class="axis" x="${x + bw / 2}" y="${H - bottom + 14}" text-anchor="middle">${a.title.length > 8 ? a.title.slice(0, 7) + "…" : a.title}</text>`;
-    bars += `<text class="axis" x="${x + bw / 2}" y="${H - bottom + 27}" text-anchor="middle">${a.date.slice(0, 7).replace("-", ".")}</text>`;
-  });
-  document.getElementById("chart").innerHTML =
-    `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="앨범별 한터 초동 막대 차트">${bars}</svg>`;
-
-  // 앨범별 기록
-  let rows = `<thead><tr><th>앨범</th><th>초동</th></tr></thead><tbody>`;
-  [...list].reverse().forEach(a => {
-    const idx = list.indexOf(a);
-    const p = list[idx - 1];
-    let change = `<span class="approx">—</span>`;
-    if (p) {
-      const r = (a.sales / p.sales - 1) * 100;
-      const pre = (a.approx || p.approx) ? '<span class="approx">≈</span>' : "";
-      change = `${pre}<span class="${r >= 0 ? "pos" : "neg"}">${sign(r)} ${Math.abs(r).toFixed(1)}%</span>`;
-    }
-    rows += `<tr>
-      <td><div class="alb"><div class="thumb" style="${coverBg(a)}"></div><div><div class="t">${a.title}${a.live ? '<span class="mini-live">실시간 집계 중</span>' : ""}</div><div class="d">${a.type}</div></div></div></td>
-      <td>${a.approx ? '<span class="approx">≈</span>' : ""}${comma(a.sales)}${a.approx ? '<span class="exact">확인 중</span>' : ""}</td></tr>`;
-  });
-  document.getElementById("table").innerHTML = rows + "</tbody>";
+  // 역대 한터 초동: 가로 막대 리스트 (최신 앨범이 위, 막대 길이 = 가장 큰 초동 대비 비율)
+  const hMax = Math.max(...list.map(a => a.sales));
+  document.getElementById("history").innerHTML = [...list].reverse().map((a, i) => {
+    const d = new Date(a.date + "T00:00:00");
+    const w = (a.sales / hMax * 100).toFixed(2);
+    return `
+      <button type="button" class="h-row${a === cur ? " cur" : ""}"
+        data-tip="${a.title}|${a.type} · ${ymd(d)} (${"일월화수목금토"[d.getDay()]}) 발매|${a.live ? "실시간 집계 중 · 아직 확정 전" : "한터 초동 확정"}">
+        <span class="thumb" style="${coverBg(a)}"></span>
+        <span class="h-main">
+          <span class="h-top">
+            <span class="h-name">${a.title}${a.live ? '<span class="mini-live">실시간 집계 중</span>' : ""}</span>
+            <span class="h-num num">${comma(a.sales)}</span>
+          </span>
+          <span class="h-bar"><i style="--w:${w}%; animation-delay:${0.15 + i * 0.08}s"></i></span>
+        </span>
+      </button>`;
+  }).join("");
 }
+
+// 역대 초동 줄을 누르면 발매일·앨범 종류 말풍선 (다시 누르거나 다른 곳을 누르면 닫힘)
+const histTip = Object.assign(document.createElement("div"), { className: "h-tip", hidden: true });
+document.body.appendChild(histTip);
+document.addEventListener("click", e => {
+  const row = e.target.closest?.(".h-row");
+  if (!row) { histTip.hidden = true; document.querySelectorAll(".h-row.on").forEach(r => r.classList.remove("on")); return; }
+  if (row.classList.contains("on")) { row.classList.remove("on"); histTip.hidden = true; return; }
+  document.querySelectorAll(".h-row.on").forEach(r => r.classList.remove("on"));
+  row.classList.add("on");
+  const [t, info, state] = row.dataset.tip.split("|");
+  histTip.innerHTML = `<b>${t}</b><span>${info}</span><span class="${row.classList.contains("cur") ? "live-t" : ""}">${state}</span>`;
+  histTip.hidden = false;
+  const r = row.getBoundingClientRect();
+  histTip.style.top = (window.scrollY + r.top - histTip.offsetHeight - 6) + "px";
+  histTip.style.left = (window.scrollX + r.left + 52) + "px";
+});
 
 // 스크래퍼가 만든 data/sales.json을 읽어 현재 앨범 숫자를 덮어쓴다 (5분마다 다시 읽음)
 async function loadLive() {
