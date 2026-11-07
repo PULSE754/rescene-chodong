@@ -666,7 +666,7 @@ function trendChart(cur, daily, isLive, cmp) {
   const legend = cmpCums ? `<div class="trend-legend">
       <span class="k-cur"><i class="lg-line"></i>${cur.title}</span>
       <span class="k-cmp"><i class="lg-cmp"></i>${cmp.title}</span></div>` : "";
-  return `<div class="trend"><div class="trend-head"><span>누적 판매 추이</span><span class="hint">날짜를 누르면 상세</span></div>${legend}
+  return `<div class="trend"><div class="trend-head"><span>누적 판매 추이</span></div>${legend}
     <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="일별 누적 판매 추이 그래프">${s}</svg>
     <div class="t-tip" hidden></div></div>`;
 }
