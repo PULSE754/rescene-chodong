@@ -42,7 +42,8 @@ export async function launch() {
 }
 
 export async function readChart(page, url) {
-  await page.goto(url, { waitUntil: "networkidle", timeout: 45000 });
+  // ?_= 를 붙여 중간 캐시(CDN)에 남은 옛 페이지 대신 최신 페이지를 받는다 (해외 서버에서 2~3분 늦은 페이지가 오는 문제)
+  await page.goto(`${url}?_=${Date.now()}`, { waitUntil: "networkidle", timeout: 45000 });
   await page.waitForSelector(".chart-item.rank-data", { timeout: 20000 });
   for (let i = 0; i < MAX_MORE; i++) {
     const before = await page.locator(".chart-item.rank-data").count();
@@ -101,6 +102,11 @@ export async function updateReal(page, data) {
   const rows = real.rows.filter(isTarget);
   if (!st || st.date < TARGET.release) return { date: st?.date, sales: null, rows: 0 };
   if (data.days[st.date]?.final) return { date: st.date, sales: data.days[st.date].sales, rows: rows.length, skipped: true };
+  // 이미 저장된 시각보다 이른 페이지(캐시된 옛 페이지)면 무시한다 — 숫자가 거꾸로 가는 것 방지
+  const prevAsOf = data.days[st.date]?.asOf;
+  if (prevAsOf && st.time && `${st.date} ${st.time}` < prevAsOf) {
+    return { date: st.date, time: st.time, sales: null, rows: rows.length, skipped: `옛 페이지(${st.time} < ${prevAsOf.slice(11)}) → 무시` };
+  }
   const sales = rows.reduce((s, r) => s + toNum(r.sales), 0);
   // 자정 직후 한터 실시간 차트는 날짜만 먼저 바뀌고 숫자는 전날 것이 잠깐 남아 있다.
   // 새 날짜인데 판매량이 전날 마지막 기록과 똑같으면 아직 초기화 전이므로 새 날을 만들지 않는다.
