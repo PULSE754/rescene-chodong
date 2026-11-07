@@ -652,18 +652,21 @@ function renderVerPop(dir = 0) {
   const prefix = new RegExp("^" + d.album.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\s*[:,]\\s*(미니앨범\\s*\\d+집\\s*,?\\s*)?");
   const status = day.final ? "확정" : `실시간 · ${(day.asOf || "").slice(-5)} 기준`;
   let body;
-  if (day.versions && day.versions.length) {
+  // 아직 버전별 기록이 없는 날은 다른 날에 나온 버전들을 0장으로 보여준다
+  const allTitles = [...new Set(d.days.flatMap(x => (x.versions || []).map(v => v.title)))];
+  const vlist = (day.versions && day.versions.length) ? day.versions : allTitles.map(t => ({ title: t, sales: 0 }));
+  if (vlist.length) {
     // 판매량 순이 아니라 고정 순서: Standard 맨 위, QR 맨 아래, 나머지는 ABC 순
     // (날짜를 넘겨도 줄 위치가 바뀌지 않게)
     const rank = n => /^standard/i.test(n) ? 0 : /^qr/i.test(n) ? 2 : 1;
-    const rows = day.versions
+    const rows = vlist
       .map(r => ({ ...r, name: r.title.replace(prefix, "") || "기본" }))
       .sort((a, b) => rank(a.name) - rank(b.name) || a.name.localeCompare(b.name, "en", { sensitivity: "base" }));
     const vt = rows.reduce((s, r) => s + r.sales, 0);
     body = rows.map(r => `
       <div class="vp-row">
         <span class="vp-name">${r.name}</span>
-        <span class="vp-num num">${comma(r.sales)} <em>(${(r.sales / vt * 100).toFixed(1)}%)</em></span>
+        <span class="vp-num num">${comma(r.sales)} <em>(${(vt ? r.sales / vt * 100 : 0).toFixed(1)}%)</em></span>
       </div>`).join("");
   } else {
     body = `<div class="vp-empty">이 날은 버전별 기록이 없어요<br><small>한터 일간 차트는 합계만 공개해서, 수집을 시작한 뒤부터 쌓여요</small></div>`;
@@ -683,8 +686,7 @@ function openVerPop(btn) {
   if (!d || !d.days.length) return;
   markVerSeen();
   // 열 때는 버전별 기록이 있는 가장 최근 날부터
-  d.idx = d.days.length - 1;
-  while (d.idx > 0 && !(d.days[d.idx].versions && d.days[d.idx].versions.length)) d.idx--;
+  d.idx = d.days.length - 1;   // 열 때는 오늘부터 (기록 전이면 0으로 표시)
   renderVerPop(0);
   verPop.hidden = false;
   const r = btn.getBoundingClientRect();
