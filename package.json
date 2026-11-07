@@ -1,0 +1,12 @@
+{
+  "name": "rescene-chodong-tracker",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "scrape": "node scraper/scrape.mjs",
+    "watch": "node scraper/watch.mjs"
+  },
+  "dependencies": {
+    "playwright-core": "1.48.2"
+  }
+}
