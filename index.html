@@ -653,7 +653,9 @@ function renderVerPop(dir = 0) {
   let body;
   // 아직 버전별 기록이 없는 날은 다른 날에 나온 버전들을 0장으로 보여준다
   const allTitles = [...new Set(d.days.flatMap(x => (x.versions || []).map(v => v.title)))];
-  const vlist = (day.versions && day.versions.length) ? day.versions : allTitles.map(t => ({ title: t, sales: 0 }));
+  // 그날 판매가 없어 한터 순위에 안 나온 버전도 0장으로 함께 보여준다
+  const got = new Map((day.versions || []).map(v => [v.title, v.sales]));
+  const vlist = [...new Set([...allTitles, ...got.keys()])].map(t => ({ title: t, sales: got.get(t) ?? 0 }));
   if (vlist.length) {
     // 판매량 순이 아니라 고정 순서: Standard 맨 위, QR 맨 아래, 나머지는 ABC 순
     // (날짜를 넘겨도 줄 위치가 바뀌지 않게)
