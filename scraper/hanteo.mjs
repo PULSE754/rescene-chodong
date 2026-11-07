@@ -109,12 +109,14 @@ export async function updateReal(page, data) {
   }
   const sales = rows.reduce((s, r) => s + toNum(r.sales), 0);
   // 자정 직후 한터 실시간 차트는 날짜만 먼저 바뀌고 숫자는 전날 것이 잠깐 남아 있다.
-  // 새 날짜인데 판매량이 전날 마지막 기록과 똑같으면 아직 초기화 전이므로 새 날을 만들지 않는다.
+  // 새 날짜인데 판매량이 전날 마지막 기록과 똑같으면 아직 초기화 전이다.
+  // 이때는 전날 숫자를 오늘 것으로 옮기지 않고, 오늘 칸만 0장(placeholder)으로 만들어 화면이 새 Day로 넘어가게 한다.
   if (!data.days[st.date] || data.days[st.date].placeholder) {
     const prevDate = Object.keys(data.days).filter(d => d < st.date).sort().at(-1);
     const prev = prevDate && data.days[prevDate];
     if (prev && !prev.final && prev.sales === sales) {
-      return { date: st.date, time: st.time, sales: null, rows: rows.length, skipped: "전날 숫자 그대로(초기화 대기)" };
+      data.days[st.date] = { sales: 0, final: false, placeholder: true, source: "hanteo-real", asOf: `${st.date} ${st.time}`, versions: [] };
+      return { date: st.date, time: st.time, sales: 0, rows: rows.length, skipped: "전날 숫자 그대로(초기화 대기) → 오늘 0장으로 표시" };
     }
   }
   data.days[st.date] = {
