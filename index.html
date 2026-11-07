@@ -605,7 +605,7 @@ function trendChart(cur, daily, isLive) {
   }
   // 남은 기간(아직 안 온 날): 아주 흐린 배경 + 세로 점선
   if (daily.length < n) {
-    const fx = L + slot * daily.length;
+    const fx = cx(daily.length - 1);   // 마지막 점(선 끝)에서 바로 시작해 사이 공백이 없게
     s += `<rect class="t-future" x="${fx}" y="${T}" width="${W - R - fx}" height="${plotH}"/>`;
     s += `<text class="t-future-label" x="${(fx + W - R) / 2}" y="${T + plotH / 2}" text-anchor="middle">남은 기간</text>`;
   }
