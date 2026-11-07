@@ -414,6 +414,13 @@
   .trend-legend i { display: inline-block; vertical-align: middle; margin-right: 5px; }
   .lg-line { width: 14px; height: 2px; background: var(--accent); }
   .lg-bar { width: 8px; height: 10px; border-radius: 2px; background: #3a3a3a; }
+  .lg-cmp { width: 14px; height: 0; border-top: 2px dashed #ff6b8b; }
+  .trend-legend .k-cur { color: var(--accent); }
+  .trend-legend .k-cmp { color: #ff8aa3; }
+  .t-cmp-line { fill: none; stroke: #ff6b8b; stroke-width: 1.8; stroke-dasharray: 4 3; stroke-linecap: round; stroke-linejoin: round; opacity: .85; }
+  .t-cmp-pt { fill: #0b0b0b; stroke: #ff6b8b; stroke-width: 1.5; }
+  .t-cmp-lbl { fill: #ff8aa3; font-size: 9.5px; font-weight: 700; }
+  .t-tip .cmp { color: #ff8aa3; font-size: 11.5px; }
   .t-bar { fill: #3a3a3a; transform-box: fill-box; transform-origin: bottom; animation: grow .7s cubic-bezier(.2,.8,.2,1) both; }
   .t-bar.today { fill: rgba(61,220,132,.55); }
   .t-empty { fill: #1c1c1c; }
@@ -478,7 +485,9 @@ const ALBUMS = [
   { title: "Glow Up", song: "Glow Up", cover: "covers/glowup.jpg",    type: "미니 2집", date: "2025-02-05", sales: 41300, colors: ["#ffd36e", "#ff7aa8"] },
   { title: "Dearest", song: "Deja Vu", cover: "covers/dearest.jpg",    type: "싱글 2집", date: "2025-07-02", sales: 88245,  colors: ["#a9e5c9", "#4aa3a2"] },
   { title: "lip bomb", song: "Heart Drop, Bloom", cover: "covers/lipbomb.jpg",   type: "미니 3집", date: "2025-11-25", sales: 104406, colors: ["#ff6b8b", "#b0177a"],
-    daily: [61820, 17450, 9860, 6120, 4010, 2980, 2166], dailySample: true },   // 시안용 예시값 (실제 수치로 바꾸면 dailySample 삭제)
+    // 일별 판매: 사용자 제공 누적 그래프(4,400 / 9,600 / 25,700 / 47,800 / 47,800 / 77,800 / 104,400, 백 단위 반올림)를 일별로 환산.
+    // 마지막 날만 공식 초동 104,406에 맞춰 +6
+    daily: [4400, 5200, 16100, 22100, 0, 30000, 26606] },
   { title: "PULSE", song: "With", cover: "covers/pulse.jpg",      type: "미니 4집", date: "2026-11-03", sales: 396957, live: true,
     // Day1·Day3 누적은 보도 수치, Day2/3 분할은 예시값
     daily: [131893, 92310, 65188, 107566],
@@ -584,15 +593,17 @@ function project(cur, ref) {
 }
 
 // 누적 판매 추이 그래프: 일별 판매(막대) + 누적(선·면). 7일 칸을 미리 그리고 아직 안 온 날은 비워 둔다.
-function trendChart(cur, daily, isLive) {
+// cmp: 비교할 이전 앨범({ title, daily }) — 같은 Day 기준 누적을 점선으로 겹쳐 그린다
+function trendChart(cur, daily, isLive, cmp) {
   if (!daily.length) return "";
-  const W = 340, H = 220, L = 40, R = 10, T = 26, B = 30;
+  const W = 340, H = 210, L = 40, R = 10, T = 26, B = 18;
   const n = 7, slot = (W - L - R) / n;
   const cums = daily.reduce((a, v) => (a.push((a.at(-1) || 0) + v), a), []);
+  const cmpCums = cmp?.daily?.length ? cmp.daily.slice(0, n).reduce((a, v) => (a.push((a.at(-1) || 0) + v), a), []) : null;
   const plotH = H - T - B;
   // y축: 점선은 50,000장마다, 숫자는 100,000장마다 (0부터 시작)
   const MINOR = 50000, MAJOR = 100000;
-  const yMax = Math.max(MAJOR, Math.ceil(Math.max(...cums) * 1.1 / MAJOR) * MAJOR);
+  const yMax = Math.max(MAJOR, Math.ceil(Math.max(...cums, ...(cmpCums || [])) * 1.1 / MAJOR) * MAJOR);
   const cx = i => L + slot * i + slot / 2;
   const yC = v => T + plotH - (v / yMax) * plotH;
   const start = new Date(cur.date + "T00:00:00");
@@ -613,7 +624,14 @@ function trendChart(cur, daily, isLive) {
     const d = new Date(start); d.setDate(d.getDate() + i);
     const has = i < daily.length;
     s += `<text class="axis${has ? "" : " dim"}" x="${cx(i)}" y="${H - B + 13}" text-anchor="middle">D${i + 1}</text>`;
-    s += `<text class="axis${has ? "" : " dim"}" x="${cx(i)}" y="${H - B + 25}" text-anchor="middle" ${isWeekend(d) ? 'style="fill:#ff8a8f"' : ""}>${"일월화수목금토"[d.getDay()]}</text>`;
+  }
+  // 비교 앨범 누적 (점선, 남은 기간 위로도 7일 끝까지)
+  if (cmpCums) {
+    const cp = cmpCums.map((v, i) => [cx(i), yC(v)]);
+    s += `<path class="t-cmp-line" d="${cp.map((p, i) => (i ? "L" : "M") + p[0].toFixed(1) + " " + p[1].toFixed(1)).join(" ")}"/>`;
+    cp.forEach(p => { s += `<circle class="t-cmp-pt" cx="${p[0]}" cy="${p[1]}" r="2.2"/>`; });
+    const e = cp.at(-1);
+    s += `<text class="t-cmp-lbl num" x="${e[0]}" y="${e[1] - 8}" text-anchor="end">${comma(cmpCums.at(-1))}</text>`;
   }
   // 누적 선 + 면
   const pts = cums.map((v, i) => [cx(i), yC(v)]);
@@ -637,9 +655,13 @@ function trendChart(cur, daily, isLive) {
     s += `<rect class="t-hit" x="${L + slot * i}" y="${T}" width="${slot}" height="${plotH}"
       data-i="${i}" data-px="${cx(i)}" data-py="${pts[i][1]}"
       data-t="Day ${i + 1} · ${ymd(d)} (${"일월화수목금토"[d.getDay()]})${today ? " · 실시간" : ""}"
-      data-v="+${comma(daily[i])}장" data-c="누적 ${comma(v)}장"/>`;
+      data-v="+${comma(daily[i])}장" data-c="누적 ${comma(v)}장"
+      ${cmpCums?.[i] != null ? `data-p="${cmp.title} 같은 날 누적 ${comma(cmpCums[i])}장"` : ""}/>`;
   });
-  return `<div class="trend"><div class="trend-head"><span>누적 판매 추이</span><span class="hint">날짜를 누르면 상세</span></div>
+  const legend = cmpCums ? `<div class="trend-legend">
+      <span class="k-cur"><i class="lg-line"></i>${cur.title}</span>
+      <span class="k-cmp"><i class="lg-cmp"></i>${cmp.title}</span></div>` : "";
+  return `<div class="trend"><div class="trend-head"><span>누적 판매 추이</span><span class="hint">날짜를 누르면 상세</span></div>${legend}
     <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="일별 누적 판매 추이 그래프">${s}</svg>
     <div class="t-tip" hidden></div></div>`;
 }
@@ -741,7 +763,8 @@ function showTip(hit) {
   const box = hit.closest(".trend"), svg = box.querySelector("svg"), tip = box.querySelector(".t-tip");
   const vb = svg.viewBox.baseVal, r = svg.getBoundingClientRect(), br = box.getBoundingClientRect();
   const k = r.width / vb.width;
-  tip.innerHTML = `<b>${hit.dataset.t}</b><span class="num">${hit.dataset.v}</span><span class="num">${hit.dataset.c}</span>`;
+  tip.innerHTML = `<b>${hit.dataset.t}</b><span class="num">${hit.dataset.v}</span><span class="num">${hit.dataset.c}</span>`
+    + (hit.dataset.p ? `<span class="num cmp">${hit.dataset.p}</span>` : "");
   tip.hidden = false;
   const x = r.left - br.left + (+hit.dataset.px) * k, y = r.top - br.top + (+hit.dataset.py) * k;
   const half = tip.offsetWidth / 2;
@@ -899,7 +922,7 @@ function render(mode, upd = null) {
   }
   document.getElementById("vs").innerHTML = `
     <h2 class="sec-title">일별 판매량 <small>단위: 장</small></h2>
-    ${trendChart(cur, daily, isLive)}
+    ${trendChart(cur, daily, isLive, cur.title === "PULSE" ? ALBUMS.find(a => a.title === "lip bomb") : null)}
     <table class="num daily">
       <thead><tr><th>일차</th><th>판매량</th><th>누적</th>${pd ? `<th style="white-space:nowrap">직전 누적<span class="dsm">${prev.title}</span></th>` : ""}</tr></thead>
       <tbody>${drows}</tbody>
