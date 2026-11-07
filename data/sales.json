@@ -118,18 +118,18 @@
       "rows": 1
     },
     "2026-11-07": {
-      "sales": 47366,
+      "sales": 47371,
       "final": false,
       "source": "hanteo-real",
-      "asOf": "2026-11-07 18:05",
+      "asOf": "2026-11-07 18:06",
       "versions": [
         {
           "title": "PULSE: 미니앨범 4집, QR ver.",
-          "sales": 47255
+          "sales": 47258
         },
         {
           "title": "PULSE: 미니앨범 4집, Limited ver.",
-          "sales": 36
+          "sales": 37
         },
         {
           "title": "PULSE: 미니앨범 4집, Standard ver.",
@@ -137,10 +137,10 @@
         },
         {
           "title": "PULSE: 미니앨범 4집, Wappen ver.",
-          "sales": 46
+          "sales": 47
         }
       ]
     }
   },
-  "updatedAt": "2026-11-07T09:06:00.237Z"
+  "updatedAt": "2026-11-07T09:07:04.384Z"
 }
