@@ -639,8 +639,7 @@ document.body.appendChild(verPop);
 // 버전별 보기를 한 번 열어본 사람에게는 반짝임 효과를 다시 보여주지 않는다 (이 브라우저에만 기억)
 function verSeen() { try { return localStorage.getItem("verSeen") === "1"; } catch { return false; } }
 function markVerSeen() {
-  try { localStorage.setItem("verSeen", "1"); } catch {}
-  document.querySelectorAll(".ver-hint").forEach(h => h.classList.add("seen"));
+  // 한 번 열어 봐도 효과는 계속 유지한다 (예전에는 여기서 효과를 멈췄음)
 }
 // 팝업 내용: ‹ › 로 Day 1부터 오늘까지 넘겨 본다
 function renderVerPop(dir = 0) {
@@ -833,7 +832,7 @@ function render(mode, upd = null) {
     ? `<button type="button" class="today num${hasVer ? " has-ver" : ""}" ${hasVer ? 'aria-haspopup="dialog"' : "disabled"}>
         <span class="k">TODAY · 오늘 판매</span>
         <span class="v"><span class="arw">▲</span><span class="cnt" data-to="${todayN}">${upd ? comma(upd.today) : 0}</span></span>
-        ${hasVer ? `<span class="ver-hint${verSeen() ? " seen" : ""}">버전별 보기 <i class="caret">▾</i></span>` : ""}</button>`
+        ${hasVer ? `<span class="ver-hint">버전별 판매량 <i class="caret">▾</i></span>` : ""}</button>`
     : "";
   window.__verData = hasVer ? { days: cur.dayDetails || [], album: cur.title, idx: (cur.dayDetails || []).length - 1 } : null;
   document.getElementById("hero").innerHTML = `
