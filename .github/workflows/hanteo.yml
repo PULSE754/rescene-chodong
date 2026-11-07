@@ -1,3 +1,7 @@
+# 한터 판매량 자동 수집 (PC 없이 GitHub 서버에서 1분마다)
+# - 30분마다 예약되지만, 한 번에 하나만 돌고(concurrency) 실행 하나가 약 5시간 반 동안 이어서 감시한다
+#   → 실행이 끝나면 대기 중이던 다음 예약이 바로 이어받아 끊기지 않는다
+# - Actions 탭에서 "Run workflow"로 바로 시작할 수도 있다
 name: hanteo
 
 on:
@@ -11,6 +15,7 @@ concurrency:
 
 permissions:
   contents: write
+  actions: write   # 새 판매량을 저장할 때마다 사이트 배포(deploy)를 호출하기 위해
 
 jobs:
   scrape:

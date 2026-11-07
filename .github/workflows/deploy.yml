@@ -1,0 +1,44 @@
+# 사이트 배포 (GitHub Actions 방식)
+# - main에 파일을 올리면(push) 자동 배포
+# - 클라우드 감시(hanteo)가 새 판매량을 'data' 브랜치에 저장할 때마다 이 배포를 호출(workflow_dispatch)
+#   → 배포 때 'data' 브랜치의 최신 data/sales.json을 끼워 넣어서, 사이트가 1~2분 안에 새 숫자를 보여준다
+# - Actions 방식 배포에는 Pages의 "시간당 10회 빌드" 제한이 없다
+name: deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: 최신 판매량(data 브랜치) 끼워 넣기
+        run: |
+          git fetch --depth=1 origin data || true
+          git show origin/data:data/sales.json > /tmp/sales.json && cp /tmp/sales.json data/sales.json || echo "data 브랜치 없음 - main 파일 사용"
+      - name: 사이트 파일만 모으기
+        run: |
+          mkdir -p _site
+          rsync -a --exclude .git --exclude .github --exclude scraper --exclude node_modules \
+            --exclude 'package*.json' --exclude _site ./ _site/
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deployment
+        uses: actions/deploy-pages@v4
