@@ -1,6 +1,6 @@
 // GitHub Actions에서 돌리는 감시 모드 (PC를 켜 둘 필요 없음)
-// - 1분마다 한터를 읽어 data/sales.json을 'data' 브랜치에 저장한다
-//   → 사이트는 GitHub API로 이 브랜치 파일을 직접 읽어서, Pages 재빌드(시간당 10회 제한)를 거치지 않고 1~2분 안에 반영된다
+// - 1분마다 한터를 읽어 data/sales.json을 'data' 브랜치에 저장하고, 바뀌었으면 사이트 배포(deploy 워크플로)를 호출한다
+//   → deploy가 data 브랜치 파일을 끼워 넣어 배포하므로 사이트에 1~2분 안에 반영된다 (Actions 배포라 시간당 10회 제한 없음)
 // - 'main' 브랜치의 data/sales.json도 15분마다 같이 갱신한다 (API를 못 쓸 때 사이트가 읽는 예비 파일)
 // - 한 번 실행에 최대 RUN_MINUTES분 동안 돈다. 워크플로가 30분마다 다음 실행을 예약해 두므로 끊기지 않고 이어진다
 // - 초동 마지막 날 확정치를 받으면 종료한다
@@ -71,6 +71,24 @@ async function writeRemote(branch, data, message) {
   }
 }
 
+// 사이트 배포 호출. deploy 워크플로가 아직 없거나 권한(actions: write)이 없으면 경고만 남기고 넘어간다
+let dispatchWarned = false;
+async function dispatchDeploy() {
+  try {
+    const res = await fetch(`https://api.github.com/repos/${OWNER}/${REPO}/actions/workflows/deploy.yml/dispatches`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${TOKEN}`, Accept: "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28", "User-Agent": "rescene-chodong-tracker",
+      },
+      body: JSON.stringify({ ref: "main" }),
+    });
+    if (!res.ok && !dispatchWarned) { dispatchWarned = true; console.error(`[${now()}] 배포 호출 실패 ${res.status} (deploy 워크플로/권한 확인)`); }
+  } catch (e) {
+    if (!dispatchWarned) { dispatchWarned = true; console.error(`[${now()}] 배포 호출 실패: ${e.message}`); }
+  }
+}
+
 // ── 메인 루프 ─────────────────────────────────────────────
 await ensureDataBranch();
 // 시작할 때 data 브랜치(없으면 main)의 최신 기록을 받아 로컬 파일로 저장 → hanteo.mjs 함수들이 그대로 이어서 쓴다
@@ -103,11 +121,12 @@ while (Date.now() - started < RUN_MS) {
     const total = Object.values(data.days).reduce((s, v) => s + v.sales, 0);
     console.log(`[${now()}] 실시간 ${r.date} ${r.time ?? ""} · 오늘 ${r.sales?.toLocaleString() ?? "-"} · 누적 ${total.toLocaleString()}${r.rows ? "" : " · 경고: 대상 앨범 없음"}`);
 
-    // 바뀐 게 있을 때만 data 브랜치에 저장 (사이트가 바로 읽는 파일)
+    // 바뀐 게 있을 때만 data 브랜치에 저장하고, 사이트 배포(deploy 워크플로)를 호출해 1~2분 안에 반영
     const s = sig(data);
     if (s !== lastSig) {
       await writeRemote(DATA_BRANCH, data, `data: ${r.date} ${r.time ?? ""}`.trim());
       lastSig = s;
+      await dispatchDeploy();
     }
     // main 예비 파일은 15분마다 (Pages 재빌드 제한 때문에 자주 올리지 않는다)
     const done = !!data.days[lastDay]?.final;
