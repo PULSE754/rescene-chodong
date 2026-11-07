@@ -682,7 +682,9 @@ function openVerPop(btn) {
   const d = window.__verData;
   if (!d || !d.days.length) return;
   markVerSeen();
-  d.idx = d.days.length - 1;   // 열 때는 항상 오늘부터
+  // 열 때는 버전별 기록이 있는 가장 최근 날부터
+  d.idx = d.days.length - 1;
+  while (d.idx > 0 && !(d.days[d.idx].versions && d.days[d.idx].versions.length)) d.idx--;
   renderVerPop(0);
   verPop.hidden = false;
   const r = btn.getBoundingClientRect();
@@ -823,7 +825,8 @@ function render(mode, upd = null) {
   if (best) tags.push(`<span class="tag best">역대 최고 초동</span>`);
 
   const todayN = isLive && cur.daily ? cur.daily[cur.daily.length - 1] : null;
-  const hasVer = !!(cur.todayVersions && cur.todayVersions.length);
+  // 오늘 기록이 아직 없어도(예: 자정 직후 0) 지난 날 버전별 기록이 있으면 버튼을 보여준다
+  const hasVer = !!(cur.dayDetails || []).some(d => d.versions && d.versions.length);
   const todayBox = todayN != null
     ? `<button type="button" class="today num${hasVer ? " has-ver" : ""}" ${hasVer ? 'aria-haspopup="dialog"' : "disabled"}>
         <span class="k">TODAY · 오늘 판매</span>
