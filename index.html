@@ -621,7 +621,7 @@ function trendChart(cur, daily, isLive, cmp) {
       s += `<circle class="t-cmp-pt" cx="${p[0]}" cy="${p[1]}" r="2.2"/>`;
       // 점마다 누적 숫자 (판매 0인 날도 같은 누적을 그대로 표시)
       const last = i === cp.length - 1;
-      s += `<text class="t-cmp-lbl num${last ? "" : " sm"}" x="${p[0]}" y="${p[1] - 7}" text-anchor="${last ? "end" : "middle"}">${comma(cmpCums[i])}</text>`;
+      s += `<text class="t-cmp-lbl num${last ? "" : " sm"}" x="${p[0]}" y="${p[1] - 7}" text-anchor="middle">${comma(cmpCums[i])}</text>`;
     });
   }
   // 누적 선 + 면
