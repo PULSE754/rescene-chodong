@@ -637,8 +637,8 @@ function trendChart(cur, daily, isLive, cmp) {
     if (!last) s += `<text class="t-cum sm num" x="${p[0]}" y="${p[1] - 8}" text-anchor="middle">${comma(cums[i])}</text>`;
     if (last) {
       s += `<circle class="t-ping" cx="${p[0]}" cy="${p[1]}" r="4.5"/>`;
-      const anchor = i >= 5 ? "end" : "middle";
-      s += `<text class="t-cum num" x="${p[0] + (anchor === "end" ? 6 : 0)}" y="${p[1] - 12}" text-anchor="${anchor}">${comma(cums[i])}</text>`;
+      // 오늘 숫자는 점 바로 위 가운데 (D7에서도 오른쪽 여백 안에 들어간다)
+      s += `<text class="t-cum num" x="${p[0]}" y="${p[1] - 12}" text-anchor="middle">${comma(cums[i])}</text>`;
     }
   });
   // 누르면(또는 마우스를 올리면) 그날 판매량·누적을 보여주는 투명한 칸
