@@ -982,29 +982,11 @@ function showHistTip(row) {
 }
 
 // 판매량 파일 읽기 (1분마다)
-// 1순위: GitHub Actions가 1분마다 갱신하는 'data' 브랜치 파일을 GitHub API로 직접 읽는다 (Pages 재빌드를 안 거쳐 1~2분 안에 반영)
-//        cache:"no-cache"면 바뀌지 않았을 때 304로 끝나 API 사용 한도(시간당 60회)를 거의 쓰지 않는다
-//        단, 접속(IP)당 시간당 60회 한도가 있어서 막히면 10분 동안은 API를 쉬고 2순위로 읽는다
-// 2순위: 같은 'data' 브랜치 파일의 raw 주소 (한도 없음, 대신 최대 5분 캐시)
-// 3순위: 사이트에 같이 올라가는 data/sales.json (15분마다 갱신되는 예비 파일)
-const DATA_API = "https://api.github.com/repos/PULSE754/rescene-chodong/contents/data/sales.json?ref=data";
-const DATA_RAW = "https://raw.githubusercontent.com/PULSE754/rescene-chodong/data/data/sales.json";
-let apiPauseUntil = 0;
-const newer = (a, b) => (!b || (a && a.updatedAt > b.updatedAt)) ? a : b;
+// 클라우드 감시(hanteo)가 새 숫자를 받을 때마다 사이트를 다시 배포(deploy)하므로, 사이트의 data/sales.json이 1~2분 안에 최신이 된다
+// 같은 사이트 파일이라 읽기 한도가 없다. ?t= 를 붙여 Pages·브라우저 캐시를 피한다
 async function fetchSales() {
-  if (Date.now() >= apiPauseUntil) {
-    try {
-      const r = await fetch(DATA_API, { headers: { Accept: "application/vnd.github.raw+json" }, cache: "no-cache" });
-      if (r.ok) return await r.json();
-      apiPauseUntil = Date.now() + 10 * 60 * 1000;
-    } catch { apiPauseUntil = Date.now() + 10 * 60 * 1000; }
-  }
-  // raw와 예비 파일 중 더 최근 것을 쓴다
-  const [raw, pages] = await Promise.all([
-    fetch(DATA_RAW, { cache: "no-cache" }).then(r => r.ok ? r.json() : null).catch(() => null),
-    fetch(`data/sales.json?t=${Date.now()}`, { cache: "no-store" }).then(r => r.ok ? r.json() : null).catch(() => null),
-  ]);
-  return newer(raw, pages);
+  const r = await fetch(`data/sales.json?t=${Date.now()}`, { cache: "no-store" });
+  return r.ok ? r.json() : null;
 }
 async function loadLive() {
   try {
