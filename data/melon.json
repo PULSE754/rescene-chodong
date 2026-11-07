@@ -1,16 +1,16 @@
 {
-  "asOf": "2026-11-07 07:00",
+  "asOf": "2026-11-07 09:00",
   "source": "멜론 TOP100 (요청 시 수동 확인)",
   "songs": [
-    { "title": "With", "rank": 2, "change": 0 },
+    { "title": "With", "rank": 1, "change": 0 },
+    { "title": "백화요란 (Inside Out)", "rank": 4, "change": 0 },
     { "title": "LOVE ATTACK", "rank": 5, "change": 0 },
-    { "title": "백화요란 (Inside Out)", "rank": 7, "change": 0 },
-    { "title": "Deja Vu", "rank": 8, "change": 0 },
-    { "title": "Pretty Girl", "rank": 12, "change": 0 },
-    { "title": "Finest Thing", "rank": 23, "change": -1 },
-    { "title": "Runaway", "rank": 24, "change": 0 },
-    { "title": "MEME", "rank": 28, "change": 0 },
-    { "title": "Dragon", "rank": 34, "change": 0 },
-    { "title": "Pinball", "rank": 40, "change": 0 }
+    { "title": "Deja Vu", "rank": 8, "change": -1 },
+    { "title": "Pretty Girl", "rank": 9, "change": 1 },
+    { "title": "Finest Thing", "rank": 10, "change": -1 },
+    { "title": "MEME", "rank": 13, "change": -2 },
+    { "title": "Runaway", "rank": 16, "change": 1 },
+    { "title": "Dragon", "rank": 17, "change": -4 },
+    { "title": "Pinball", "rank": 21, "change": -3 }
   ]
 }
