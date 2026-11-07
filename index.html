@@ -350,27 +350,6 @@
   .h-tip .live-t { color: var(--live); }
   .h-tip .song { color: var(--ink); }
 
-  /* 상단 멜론 순위 티커 */
-  .ticker { position: sticky; top: 0; z-index: 30; display: flex; align-items: stretch; height: 34px;
-    background: #8fa6ad; color: #10171a; font-size: 13px; border-bottom: 1px solid rgba(0,0,0,.25); }
-  .tk-label { flex: none; display: flex; align-items: center; padding: 0 10px; font-weight: 800; font-size: 11px;
-    letter-spacing: .06em; background: #10171a; color: #00cd3c; gap: 6px; white-space: nowrap; }
-  .tk-label span { color: #e6eef0; font-weight: 500; letter-spacing: 0; font-size: 11px; }
-  .tk-view { flex: 1; overflow: hidden; position: relative;
-    mask-image: linear-gradient(90deg, transparent, #000 24px, #000 calc(100% - 24px), transparent); }
-  .tk-track { display: inline-flex; align-items: center; height: 100%; white-space: nowrap; animation: tk 40s linear infinite !important; }
-  .ticker:hover .tk-track { animation-play-state: paused !important; }
-  @keyframes tk { from { transform: translateX(0); } to { transform: translateX(-50%); } }
-  .tk-item { display: inline-flex; align-items: baseline; gap: 5px; padding: 0 14px; position: relative; }
-  .tk-item + .tk-item::before { content: "·"; position: absolute; left: -2px; opacity: .6; }
-  .tk-item b { font-weight: 500; }
-  .tk-item .r { font-weight: 500; }
-  .tk-item .up { color: #c4141e; font-size: 12px; } .tk-item .down { color: #1554b8; font-size: 12px; } .tk-item .same { opacity: .55; font-size: 12px; }
-  .tk-item.top .r { color: #c4141e; }
-  .tk-sep { display: inline-flex; align-items: center; gap: 6px; margin: 0 14px; padding: 3px 10px; border-radius: 999px;
-    background: #10171a; color: #e6eef0; font-size: 11px; white-space: nowrap; }
-  .tk-sep b { color: #00cd3c; font-weight: 800; letter-spacing: .06em; }
-
   /* 새 집계 반영 때의 반응 */
   .calm .t-line { animation: none !important; stroke-dashoffset: 0; }
   .calm .t-area, .calm .t-pt, .calm .t-cum { animation: none !important; opacity: 1; }
@@ -467,7 +446,6 @@
 </style>
 </head>
 <body>
-<div class="ticker" id="ticker" hidden><div class="tk-view"><div class="tk-track" id="tkTrack"></div></div></div>
 <div class="wrap">
   <header>
     <div class="brand">리센느 초동 · 실시간 앨범 판매량 트래커<small>리센느 펄스 앨범 판매량을 한터차트 기준으로 실시간 집계 비공식 팬 사이트</small></div>
@@ -1033,24 +1011,6 @@ async function loadLive() {
 }
 let lastSig = null;
 
-// 상단 멜론 순위 티커 (data/melon.json, 수동 입력)
-async function loadMelon() {
-  try {
-    const m = await fetch(`data/melon.json?t=${Date.now()}`, { cache: "no-store" }).then(r => r.ok ? r.json() : null);
-    if (!m?.songs?.length) return;
-    const h = +m.asOf.slice(11, 13);
-    const when = `${h < 12 ? "오전" : "오후"} ${h % 12 || 12}시 기준`;
-    const items = [...m.songs].sort((a, b) => a.rank - b.rank).map(s => {
-      const ch = s.change > 0 ? `<span class="up">▲${s.change}</span>` : s.change < 0 ? `<span class="down">▼${-s.change}</span>`
-        : s.change === "NEW" ? `<span class="up">NEW</span>` : `<span class="same">–</span>`;
-      return `<span class="tk-item${s.rank === 1 ? " top" : ""}"><b>${s.title}</b><span class="r">${s.rank}위</span>${ch}</span>`;
-    }).join("") + `<span class="tk-sep"><b>MELON</b> ${when}</span>`;   // 한 바퀴 끝(마지막 순위 → 1위 사이) 구분 표시
-    document.getElementById("tkTrack").innerHTML = items + items;   // 두 번 이어 붙여 끊김 없이 흐르게
-    document.getElementById("ticker").hidden = false;
-  } catch {}
-}
-loadMelon();
-setInterval(loadMelon, 5 * 60 * 1000);
 // 집계 중인 앨범(live)이 있으면 그 앨범을, 없으면 가장 최근 확정 앨범을 보여준다
 const currentMode = () => ALBUMS.some(a => a.live) ? "live" : "idle";
 loadLive().finally(() => render(currentMode()));
