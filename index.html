@@ -209,12 +209,15 @@
   .big b small { font-size: 0.55em; margin-left: 2px; }
   .asof { font-size: 12px; color: var(--muted); margin-top: 6px; }
 
-  .tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 16px; }
-  .tag { font-size: 12px; font-weight: 500; padding: 5px 10px; border-radius: 999px; }
-  .tag.up { background: rgba(255,93,99,.14); color: var(--up); }
-  .tag.down { background: rgba(106,168,255,.14); color: var(--down); }
-  .tag.best { background: var(--accent); color: var(--accent-ink); }
-  .tag.wait { background: var(--raise); color: var(--muted); }
+  /* 직전 앨범 비교 (버튼처럼 보이지 않게 평범한 정보 줄로) */
+  .cmp-box { margin-top: 16px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,.08); display: flex; flex-direction: column; gap: 6px; }
+  .cmp-row { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; font-size: 13px; color: var(--sub); }
+  .cmp-k b { color: var(--ink); font-weight: 500; }
+  .cmp-v { font-size: 16px; font-weight: 700; white-space: nowrap; }
+  .cmp-v.pos { color: var(--accent); }
+  .cmp-v.neg { color: var(--muted); }
+  .best-note { font-size: 11px; color: var(--muted); }
+  .best-note::before { content: "★ "; color: var(--accent); }
 
   table { width: 100%; border-collapse: collapse; font-size: 14px; }
   th { text-align: left; font-family: var(--font); font-size: 12px; color: var(--muted); font-weight: 400; padding: 0 8px 8px; border-bottom: 1px solid var(--line); }
@@ -860,10 +863,20 @@ function render(mode, upd = null) {
   const status = isLive
     ? `<span class="live">실시간 집계 중 · D-${dday}</span><span class="live-end">${ymd(end)} 마감</span>`
     : `<span class="final">초동 확정</span>`;
+  // 직전 앨범과의 비교를 숫자로: ① 같은 날 누적 대비 차이 ② 직전 초동 전체 대비 배수(버림)
+  const k = (cur.daily || []).length;
+  const prevSame = prev.daily?.length >= k && k ? prev.daily.slice(0, k).reduce((s, v) => s + v, 0) : null;
+  const x = r => (r >= 10 ? Math.floor(r) : Math.floor(r * 10) / 10) + "배";
+  const cmpRows = [];
+  if (prevSame != null) {
+    const d = cur.sales - prevSame;
+    cmpRows.push(`<div class="cmp-row"><span class="cmp-k">${prev.title} 같은 날(D${k}) <b class="num">${comma(prevSame)}</b> 대비</span>
+      <span class="cmp-v num ${d >= 0 ? "pos" : "neg"}">${d >= 0 ? "+" : "−"}${comma(Math.abs(d))}장</span></div>`);
+  }
+  cmpRows.push(`<div class="cmp-row"><span class="cmp-k">${prev.title} 초동 전체 <b class="num">${comma(prev.sales)}</b> 대비</span>
+    <span class="cmp-v num ${beat ? "pos" : "neg"}">${beat ? x(ratio) : "−" + comma(prev.sales - cur.sales) + "장"}</span></div>`);
   const tags = [];
-  if (beat) tags.push(`<span class="tag up">▲ ${isLive ? "직전 초동 갱신 확정" : "직전 초동 갱신"}</span>`);
-  else tags.push(isLive ? `<span class="tag wait">직전 초동까지 ${comma(prev.sales - cur.sales)}장</span>` : `<span class="tag down">▼ 직전 초동 미달</span>`);
-  if (best) tags.push(`<span class="tag best">역대 최고 초동</span>`);
+  if (best) tags.push(`<span class="best-note">역대 최고 초동</span>`);
 
   const todayN = isLive && cur.daily ? cur.daily[cur.daily.length - 1] : null;
   // 오늘 기록이 아직 없어도(예: 자정 직후 0) 지난 날 버전별 기록이 있으면 버튼을 보여준다
@@ -886,7 +899,7 @@ function render(mode, upd = null) {
     </div>
     <div class="big"><div class="big-l"><div class="big-label">현재 누적 판매량</div><b class="num"><span class="tot" data-to="${cur.sales}">${comma(upd ? upd.total : cur.sales)}</span><small> 장</small></b></div>${todayBox}</div>
     <div class="asof num">${isLive ? "집계 기준 (KST) " + cur.asOf : "한터 초동 확정치"}</div>
-    <div class="tags">${tags.join("")}</div>`;
+    <div class="cmp-box">${cmpRows.join("")}${tags.join("")}</div>`;
   if (upd) countUp(upd.today, upd.total); else countUp();
   // 갱신 때는 처음 열 때의 등장 애니메이션(선 그리기·막대 차오르기)을 반복하지 않는다
   document.getElementById("vs").classList.toggle("calm", !!upd);
