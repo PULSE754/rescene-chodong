@@ -981,13 +981,24 @@ function showHistTip(row) {
   histTip.style.left = (window.scrollX + r.left + 52) + "px";
 }
 
-// 스크래퍼가 만든 data/sales.json을 읽어 현재 앨범 숫자를 덮어쓴다 (5분마다 다시 읽음)
+// 판매량 파일 읽기 (1분마다)
+// 1순위: GitHub Actions가 1분마다 갱신하는 'data' 브랜치 파일을 GitHub API로 직접 읽는다 (Pages 재빌드를 안 거쳐 1~2분 안에 반영)
+//        cache:"no-cache"면 바뀌지 않았을 때 304로 끝나 API 사용 한도(시간당 60회)를 거의 쓰지 않는다
+// 2순위: API가 막히면(한도 초과 등) 사이트에 같이 올라가는 data/sales.json (15분마다 갱신되는 예비 파일)
+const DATA_API = "https://api.github.com/repos/PULSE754/rescene-chodong/contents/data/sales.json?ref=data";
+async function fetchSales() {
+  try {
+    const r = await fetch(DATA_API, { headers: { Accept: "application/vnd.github.raw+json" }, cache: "no-cache" });
+    if (r.ok) return await r.json();
+  } catch {}
+  // ?t= 를 붙여 GitHub Pages·브라우저 캐시를 피한다
+  const r = await fetch(`data/sales.json?t=${Date.now()}`, { cache: "no-store" });
+  return r.ok ? r.json() : null;
+}
 async function loadLive() {
   try {
-    // ?t= 를 붙여 GitHub Pages·브라우저 캐시를 피하고 항상 최신 파일을 받는다
-    const r = await fetch(`data/sales.json?t=${Date.now()}`, { cache: "no-store" });
-    if (!r.ok) return false;
-    const j = await r.json();
+    const j = await fetchSales();
+    if (!j) return false;
     const a = ALBUMS.find(x => x.title === j.album);
     if (!a) return false;
     const dates = Object.keys(j.days).sort();
