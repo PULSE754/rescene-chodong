@@ -90,7 +90,14 @@ export async function updateDaily(page, data) {
   // 이미 확정된 날을 다른 숫자로 덮어쓰지 않는다.
   // (한터 일간 차트는 숫자가 먼저 다음 날 것으로 바뀌고 날짜 표시는 늦게 바뀌는 순간이 있다)
   const cur = data.days[st.date];
-  if (cur?.final && cur.sales !== sales) return { date: st.date, sales: null, skipped: `확정치 ${cur.sales}와 다름(${sales}) → 무시` };
+  // 날짜 표시만 먼저 바뀌고 숫자는 전날 확정치 그대로인 순간이 있다(11/9 오전: Day6에 Day5 숫자 47,482가 들어감).
+  // 전날 확정치와 똑같은 숫자는 아직 갱신 전으로 보고 무시한다.
+  const prevDate = Object.keys(data.days).filter(d => d < st.date).sort().at(-1);
+  const prev = prevDate && data.days[prevDate];
+  if (prev?.final && prev.sales === sales) return { date: st.date, sales: null, skipped: `전날 확정치(${sales})와 같음 → 일간 차트 갱신 전, 무시` };
+  // 예전에 그 오류로 잘못 확정된 날(전날과 같은 숫자)은 새 숫자로 바로잡는다
+  const wrongFinal = cur?.final && prev?.final && cur.sales === prev.sales;
+  if (cur?.final && cur.sales !== sales && !wrongFinal) return { date: st.date, sales: null, skipped: `확정치 ${cur.sales}와 다름(${sales}) → 무시` };
   data.days[st.date] = { ...(cur || {}), sales, final: true, source: "hanteo-daily", rows: rows.length };
   return { date: st.date, sales };
 }
