@@ -239,6 +239,9 @@
   .approx { color: var(--muted); font-size: 12px; }
   .mini-live { font-family: var(--font); font-size: 11px; font-weight: 500; color: var(--live); margin-left: 8px; display: inline-flex; align-items: center; gap: 5px; }
   .mini-live::before { width: 5px; height: 5px; }
+  /* 마감 뒤 한터 확정치를 기다리는 동안: 노랑(눈에 띄게), 천천히 깜빡임 */
+  .live.wait, .mini-live.wait, .wait-t { color: #ffc861; font-weight: 600; }
+  .live.wait::before, .mini-live.wait::before { background: #ffc861; animation: blink 2s ease-in-out infinite; }
   .pos { color: var(--up); } .neg { color: var(--down); }
 
   table.daily td.dt, table.daily th:nth-child(2) { text-align: left; color: var(--muted); }
@@ -486,7 +489,8 @@ const comma = n => n.toLocaleString("ko-KR");
 const fmtDate = s => s.replaceAll("-", ".");
 const ymd = d => `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, "0")}.${String(d.getDate()).padStart(2, "0")}`;
 const endOf = s => { const d = new Date(s + "T00:00:00"); d.setDate(d.getDate() + 6); return d; };
-const TODAY = new Date();
+// ?now=2026-11-10T01:00 처럼 붙이면 그 시각인 것처럼 화면을 미리 볼 수 있다(확인용)
+const TODAY = new URLSearchParams(location.search).get("now") ? new Date(new URLSearchParams(location.search).get("now")) : new Date();
 const sign = d => d >= 0 ? "▲" : "▼";
 // 커버: a.cover(이미지 파일 경로)가 있으면 그 이미지, 없으면 임시 그라데이션
 const coverBg = a => a.cover
@@ -845,9 +849,10 @@ function render(mode, upd = null) {
   const end = endOf(cur.date);
   const dday = Math.ceil((end - new Date(TODAY.toDateString())) / 86400000);
   // 마감일이 지났는데 아직 한터 확정치(다음 날 오전)가 안 나온 동안은 '확정 대기'로 표시
+  const waiting = isLive && dday < 0;
   const status = isLive
-    ? (dday < 0
-      ? `<span class="live">집계 마감 · 확정치 대기 중</span><span class="live-end">한터 확정치는 ${ymd(new Date(end.getTime() + 864e5))} 오전 발표</span>`
+    ? (waiting
+      ? `<span class="live wait">집계 마감 · 확정 대기 중</span><span class="live-end">한터 확정치는 ${ymd(new Date(end.getTime() + 864e5))} 오전 발표</span>`
       : `<span class="live">실시간 집계 중 · D-${dday}</span><span class="live-end">${ymd(end)} 마감</span>`)
     : `<span class="final">초동 확정</span>`;
   // 직전 앨범과의 비교를 숫자로: ① 같은 날 누적 대비 차이 ② 직전 초동 전체 대비 배수(버림)
@@ -869,7 +874,7 @@ function render(mode, upd = null) {
   const hasVer = !!(cur.dayDetails || []).some(d => d.versions && d.versions.length);
   const todayBox = todayN != null
     ? `<button type="button" class="today num${hasVer ? " has-ver" : ""}" ${hasVer ? 'aria-haspopup="dialog"' : "disabled"}>
-        <span class="k">TODAY · 오늘 판매</span>
+        <span class="k">${waiting ? `Day ${cur.daily.length} 판매` : "TODAY · 오늘 판매"}</span>
         <span class="v"><span class="arw">▲</span><span class="cnt" data-to="${todayN}">${upd ? comma(upd.today) : 0}</span></span>
         ${hasVer ? `<span class="ver-hint">버전별 판매량 <i class="caret">▾</i></span>` : ""}</button>`
     : "";
@@ -918,7 +923,7 @@ function render(mode, upd = null) {
     if (has) cum += daily[i];
     if (pd) pcum += pd[i];
     drows += `<tr class="${has ? "pick" : "empty"} ${isToday ? "now" : ""}" ${has ? `data-day="${i}"` : ""}>
-      <td><span class="t">Day ${i + 1}</span>${isToday ? '<span class="mini-live">실시간 집계 중</span>' : ""}<span class="dsm">${ymd(d)} <span class="${d.getDay() === 6 ? "sat" : d.getDay() === 0 ? "sun" : ""}">(${"일월화수목금토"[d.getDay()]})</span></span></td>
+      <td><span class="t">Day ${i + 1}</span>${isToday ? (waiting ? '<span class="mini-live wait">확정 대기</span>' : '<span class="mini-live">실시간 집계 중</span>') : ""}<span class="dsm">${ymd(d)} <span class="${d.getDay() === 6 ? "sat" : d.getDay() === 0 ? "sun" : ""}">(${"일월화수목금토"[d.getDay()]})</span></span></td>
       <td>${has ? "+" + comma(daily[i]) : "—"}</td>
       <td>${has ? comma(cum) : "—"}</td>
       ${pd ? `<td class="cmp">${comma(pcum)}</td>` : ""}</tr>`;
@@ -938,11 +943,11 @@ function render(mode, upd = null) {
     const w = (a.sales / hMax * 100).toFixed(2);
     return `
       <button type="button" class="h-row${a === cur ? " cur" : ""}"
-        data-tip="${a.title}|${a.type} · ${ymd(d)} (${"일월화수목금토"[d.getDay()]}) 발매|${a.song ? "타이틀곡 · " + a.song : ""}|${a.live ? "실시간 집계 중 · 아직 확정 전" : "한터 초동 확정"}">
+        data-tip="${a.title}|${a.type} · ${ymd(d)} (${"일월화수목금토"[d.getDay()]}) 발매|${a.song ? "타이틀곡 · " + a.song : ""}|${a.live ? (waiting ? "집계 마감 · 확정 대기 중" : "실시간 집계 중 · 아직 확정 전") : "한터 초동 확정"}">
         <span class="thumb" style="${coverBg(a)}"></span>
         <span class="h-main">
           <span class="h-top">
-            <span class="h-name">${a.title}${a !== cur && a.sales === bestBefore ? '<span class="h-best">(직전 최고 기록)</span>' : ""}${a.live ? '<span class="mini-live">실시간 집계 중</span>' : ""}</span>
+            <span class="h-name">${a.title}${a !== cur && a.sales === bestBefore ? '<span class="h-best">(직전 최고 기록)</span>' : ""}${a.live ? (waiting ? '<span class="mini-live wait">확정 대기</span>' : '<span class="mini-live">실시간 집계 중</span>') : ""}</span>
             <span class="h-num num">${comma(a.sales)}</span>
           </span>
           <span class="h-bar"><i style="--w:${w}%; animation-delay:${0.15 + i * 0.08}s"></i></span>
@@ -977,7 +982,7 @@ function showHistTip(row) {
   document.querySelectorAll(".h-row.on").forEach(r => r.classList.remove("on"));
   row.classList.add("on");
   const [t, info, song, state] = row.dataset.tip.split("|");
-  histTip.innerHTML = `<b>${t}</b><span>${info}</span>${song ? `<span class="song">♪ ${song.replace("타이틀곡 · ", "타이틀곡 ")}</span>` : ""}<span class="${row.classList.contains("cur") ? "live-t" : ""}">${state}</span>`;
+  histTip.innerHTML = `<b>${t}</b><span>${info}</span>${song ? `<span class="song">♪ ${song.replace("타이틀곡 · ", "타이틀곡 ")}</span>` : ""}<span class="${row.classList.contains("cur") ? (state.includes("확정 대기") ? "wait-t" : "live-t") : ""}">${state}</span>`;
   histTip.hidden = false;
   const r = row.getBoundingClientRect();
   histTip.style.top = (window.scrollY + r.top - histTip.offsetHeight - 6) + "px";
