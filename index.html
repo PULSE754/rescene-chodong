@@ -1011,14 +1011,16 @@ function confetti() {
   const hr = document.querySelector("#hero .big")?.getBoundingClientRect() || { left: 0, width: W, top: H / 3, height: 0 };
   const oy = hr.top + hr.height;              // 누적 판매량 숫자 아래 높이
   const N = W < 600 ? 120 : 170;
-  const span = Math.min(W, 820);             // 화면 가운데까지 닿을 만큼 쏜다
+  // PC에서도 휴대폰처럼 보이게: 화면 끝이 아니라 맨 위 카드의 양쪽 끝에서 쏜다
+  const card = document.getElementById("hero")?.getBoundingClientRect() || { left: 0, right: W, width: W };
+  const span = card.width;                   // 카드 가운데까지 닿을 만큼 쏜다
   const bits = [];
   // side: -1 = 왼쪽 밖에서 오른쪽 위로, 1 = 오른쪽 밖에서 왼쪽 위로
   const shoot = (side, delay, n) => {
     for (let i = 0; i < n; i++) {
       const a = (-90 - side * (25 + Math.random() * 40)) * Math.PI / 180;   // 위 + 안쪽으로 비스듬히
       const v = span * (0.016 + Math.random() * 0.016) + 3;
-      bits.push({ x: side < 0 ? -8 : W + 8, y: oy + (Math.random() - .5) * 30, vx: Math.cos(a) * v, vy: Math.sin(a) * v, delay: delay + Math.random() * 5,
+      bits.push({ x: side < 0 ? card.left - 8 : card.right + 8, y: oy + (Math.random() - .5) * 30, vx: Math.cos(a) * v, vy: Math.sin(a) * v, delay: delay + Math.random() * 5,
         w: 6 + Math.random() * 6, h: 3 + Math.random() * 4, r: Math.random() * 6, vr: (Math.random() - .5) * .15,
         flip: Math.random() * 6, c: COLORS[i % COLORS.length], round: Math.random() < .25 });
     }
