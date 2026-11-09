@@ -844,8 +844,11 @@ function render(mode, upd = null) {
   // 현재 앨범
   const end = endOf(cur.date);
   const dday = Math.ceil((end - new Date(TODAY.toDateString())) / 86400000);
+  // 마감일이 지났는데 아직 한터 확정치(다음 날 오전)가 안 나온 동안은 '확정 대기'로 표시
   const status = isLive
-    ? `<span class="live">실시간 집계 중 · D-${dday}</span><span class="live-end">${ymd(end)} 마감</span>`
+    ? (dday < 0
+      ? `<span class="live">집계 마감 · 확정치 대기 중</span><span class="live-end">한터 확정치는 ${ymd(new Date(end.getTime() + 864e5))} 오전 발표</span>`
+      : `<span class="live">실시간 집계 중 · D-${dday}</span><span class="live-end">${ymd(end)} 마감</span>`)
     : `<span class="final">초동 확정</span>`;
   // 직전 앨범과의 비교를 숫자로: ① 같은 날 누적 대비 차이 ② 직전 초동 전체 대비 배수(버림)
   const k = (cur.daily || []).length;
@@ -994,7 +997,10 @@ async function loadLive() {
     if (!j) return false;
     const a = ALBUMS.find(x => x.title === j.album);
     if (!a) return false;
-    const dates = Object.keys(j.days).sort();
+    // 초동은 발매일부터 7일. 자정이 지나 8일째 기록이 들어와도 화면·합계에 넣지 않는다
+    const dates = Object.keys(j.days).sort().filter(d => d >= a.date).slice(0, 7);
+    // 7일째까지 한터 확정치가 들어오면 '초동 확정'으로 바뀐다
+    if (dates.length === 7 && j.days[dates[6]].final) a.live = false;
     a.daily = dates.map(d => j.days[d].sales);
     a.sales = a.daily.reduce((s, v) => s + v, 0);
     // 자정 직후에는 어제(확정 대기)와 오늘이 둘 다 '집계 중'일 수 있으니 가장 최근 날을 쓴다
