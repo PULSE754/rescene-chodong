@@ -198,7 +198,15 @@
           "sales": 5049
         }
       ]
+    },
+    "2026-11-10": {
+      "sales": 0,
+      "final": false,
+      "placeholder": true,
+      "source": "hanteo-real",
+      "asOf": "2026-11-10 00:00",
+      "versions": []
     }
   },
-  "updatedAt": "2026-11-09T14:59:49.754Z"
+  "updatedAt": "2026-11-09T15:00:55.898Z"
 }
