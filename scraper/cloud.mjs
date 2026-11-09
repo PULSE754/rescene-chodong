@@ -112,7 +112,8 @@ while (Date.now() - started < RUN_MS) {
     if (dailyCheckedFor !== today) {
       const d = await updateDaily(page, data);
       const y = new Date(Date.parse(today) - 864e5).toISOString().slice(0, 10);
-      if (d.date === y) dailyCheckedFor = today;
+      // 숫자를 실제로 받았을 때만 "어제 확인 끝". (날짜만 바뀌고 숫자가 전날 것이면 계속 다시 확인)
+      if (d.date === y && d.sales != null) dailyCheckedFor = today;
       console.log(`[${now()}] 일간 ${d.date}: ${d.sales ?? "-"}${d.skipped ? " · " + d.skipped : ""}${d.date === y ? "" : " (어제 확정치 대기 중)"}`);
     }
 
