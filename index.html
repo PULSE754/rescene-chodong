@@ -852,7 +852,7 @@ function render(mode, upd = null) {
   const waiting = isLive && dday < 0;
   const status = isLive
     ? (waiting
-      ? `<span class="live wait">집계 마감 · 확정 대기 중</span><span class="live-end">한터 확정치는 ${ymd(new Date(end.getTime() + 864e5))} 오전 발표</span>`
+      ? `<span class="live wait">집계 마감 · 확정 대기 중</span><span class="live-end">최종 집계 발표 · ${(d => `${d.getMonth() + 1}.${d.getDate()}(${"일월화수목금토"[d.getDay()]})`)(new Date(end.getTime() + 864e5))} 오전 10시</span>`
       : `<span class="live">실시간 집계 중 · D-${dday}</span><span class="live-end">${ymd(end)} 마감</span>`)
     : `<span class="final">초동 확정</span>`;
   // 직전 앨범과의 비교를 숫자로: ① 같은 날 누적 대비 차이 ② 직전 초동 전체 대비 배수(버림)
