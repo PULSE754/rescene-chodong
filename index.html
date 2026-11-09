@@ -240,6 +240,10 @@
   .mini-live { font-family: var(--font); font-size: 11px; font-weight: 500; color: var(--live); margin-left: 8px; display: inline-flex; align-items: center; gap: 5px; }
   .mini-live::before { width: 5px; height: 5px; }
   /* 마감 뒤 한터 확정치를 기다리는 동안: 노랑(눈에 띄게), 천천히 깜빡임 */
+  /* 확정 대기 중: 최종 발표 시각을 노란 테두리 알약으로 눈에 띄게 */
+  .final-at { display: block; width: max-content; margin-top: 6px; padding: 3px 10px; border-radius: 999px;
+    font-size: 12px; font-weight: 700; color: #ffc861; background: rgba(255, 200, 97, .12);
+    border: 1px solid rgba(255, 200, 97, .55); white-space: nowrap; }
   .live.wait, .mini-live.wait, .wait-t { color: #ffc861; font-weight: 600; }
   .live.wait::before, .mini-live.wait::before { background: #ffc861; animation: blink 2s ease-in-out infinite; }
   .pos { color: var(--up); } .neg { color: var(--down); }
@@ -852,7 +856,7 @@ function render(mode, upd = null) {
   const waiting = isLive && dday < 0;
   const status = isLive
     ? (waiting
-      ? `<span class="live wait">집계 마감 · 확정 대기 중</span><span class="live-end">최종 집계 발표 · ${(d => `${d.getMonth() + 1}.${d.getDate()}(${"일월화수목금토"[d.getDay()]})`)(new Date(end.getTime() + 864e5))} 오전 10시</span>`
+      ? `<span class="live wait">집계 마감 · 확정 대기 중</span><span class="final-at">최종 집계 발표 · ${(d => `${d.getMonth() + 1}.${d.getDate()}(${"일월화수목금토"[d.getDay()]})`)(new Date(end.getTime() + 864e5))} 오전 10시</span>`
       : `<span class="live">실시간 집계 중 · D-${dday}</span><span class="live-end">${ymd(end)} 마감</span>`)
     : `<span class="final">초동 확정</span>`;
   // 직전 앨범과의 비교를 숫자로: ① 같은 날 누적 대비 차이 ② 직전 초동 전체 대비 배수(버림)
