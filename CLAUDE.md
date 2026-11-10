@@ -26,10 +26,15 @@ RESCENE 앨범의 한터차트 초동(발매일부터 7일) 판매량을 보여�
 
 ### 업로드
 - 수정이 끝나면 **따로 묻지 말고 바로 GitHub에 업로드**한다(사용자가 정한 규칙)
-- 바꾼 파일만 올린다:
-  `node --input-type=module -e "import { publish } from './scraper/publish.mjs'; console.log(JSON.stringify(await publish(['index.html'], '메시지')));"`
-- `node scraper/publish.mjs data`는 sales.json만 올린다
-- 새 파일을 사이트에 추가하면 `SITE_FILES`에도 넣는다
+- 2026-11-10부터 로컬 폴더가 git으로 GitHub(`origin/main`)과 연결됨. **업로드는 커밋 → 푸시**로 한다:
+  1. `git pull --rebase`(수집 봇이 main의 data/sales.json을 갱신하므로 먼저 받는다)
+  2. `git add <바꾼 파일>` → `git commit` (커밋 이메일은 noreply 주소, 저장소 설정에 있음)
+  3. 푸시는 토큰을 헤더로만 넘긴다(토큰을 출력·설정 파일에 저장하지 않는다):
+     `AUTH=$(printf 'x-access-token:%s' "$(cat .github-token)" | base64 -w0) && git -c http.extraHeader="Authorization: Basic $AUTH" push`
+     (pull도 같은 방식)
+- `.github/workflows` 파일을 바꾼 커밋은 토큰 권한이 없어 푸시가 막힌다 → 워크플로는 Chrome으로 GitHub 웹에서 고친 뒤 `git pull`
+- `scraper/publish.mjs`(API 업로드)는 GitHub에 커밋을 따로 만들어 로컬 기록과 어긋나므로 더 이상 쓰지 않는다(예비용)
+- 새 파일을 사이트에 추가하면 deploy 워크플로가 올리는 대상인지 확인한다
 - 반영까지 1~2분 걸린다고 안내한다
 
 ### 화면 수정 확인
