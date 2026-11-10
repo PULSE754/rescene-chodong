@@ -27,7 +27,7 @@ RESCENE 앨범의 한터차트 초동(발매일부터 7일) 판매량을 보여�
 ### 업로드
 - 수정이 끝나면 **따로 묻지 말고 바로 GitHub에 업로드**한다(사용자가 정한 규칙)
 - 2026-11-10부터 로컬 폴더가 git으로 GitHub(`origin/main`)과 연결됨. **업로드는 커밋 → 푸시**로 한다:
-  1. `git pull --rebase`(수집 봇이 main의 data/sales.json을 갱신하므로 먼저 받는다)
+  1. `git pull --rebase --autostash`(수집 봇이 main의 data/sales.json을 갱신하므로 먼저 받는다)
   2. `git add <바꾼 파일>` → `git commit` (커밋 이메일은 noreply 주소, 저장소 설정에 있음)
   3. 푸시는 토큰을 헤더로만 넘긴다(토큰을 출력·설정 파일에 저장하지 않는다):
      `AUTH=$(printf 'x-access-token:%s' "$(cat .github-token)" | base64 -w0) && git -c http.extraHeader="Authorization: Basic $AUTH" push`
