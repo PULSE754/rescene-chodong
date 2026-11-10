@@ -1,0 +1,26 @@
+# 비밀 값 (절대 올리지 않음)
+.env
+.env.*
+!.env.example
+.github-token
+
+# 설치 폴더
+node_modules/
+
+# 임시 파일
+data/*.tmp
+_*.mjs
+
+# 내 PC에서만 쓰는 것
+.claude/
+.taste-skill/
+피드백-정리.md
+serve.mjs
+fonts.html
+
+# 사이트에 안 쓰는 원본 이미지(용량 큼)
+hero.gif
+covers/*.png
+
+# 다른 저장소(pulse754.github.io)용 파일
+root-site/
